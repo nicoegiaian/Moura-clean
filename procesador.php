@@ -1,6 +1,6 @@
 <?php
 
-// Carga el autoloader de Composer para incluir las librerías necesarias.
+//// Carga el autoloader de Composer para incluir las librerías necesarias.
 require 'vendor/autoload.php';
 
 // "Alias" para las clases que vamos a usar.
