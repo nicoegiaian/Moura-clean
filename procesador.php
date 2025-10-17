@@ -14,32 +14,44 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
  */
 
 /**
- * Obtiene los feriados de Argentina para un año específico desde una API.
+ * Obtiene los feriados de Argentina para un año específico desde la API de Nager.Date.
  * @param string $year
  * @return array
  */
 function obtenerFeriados(string $year): array
 {
-    $url = "https://nolaborables.com.ar/api/v2/feriados/{$year}";
+    // Nueva URL de la API alternativa (Nager.Date)
+    $url = "https://date.nager.at/api/v3/PublicHolidays/{$year}/AR";
+    
     // Usamos un contexto para manejar posibles errores de la API y definir un timeout
     $context = stream_context_create([
         'http' => [
             'timeout' => 5, // 5 segundos de espera máxima
-            'ignore_errors' => true // Para poder leer el cuerpo aunque haya un error 4xx/5xx
+            'ignore_errors' => true, // Para poder leer el cuerpo aunque haya un error 4xx/5xx
+            'header' => "User-Agent: PHP-Script\r\n" // Algunas APIs requieren un User-Agent
         ]
     ]);
 
     $response = @file_get_contents($url, false, $context);
-    if ($response === false) {
-        echo "Advertencia: No se pudo conectar a la API de feriados. Se procesará sin considerar feriados.\n";
+    
+    // Verificamos si la respuesta HTTP indica un error
+    if ($response === false || strpos($http_response_header[0], '200 OK') === false) {
+        echo "Advertencia: No se pudo conectar a la API de feriados (Nager.Date). Se procesará sin considerar feriados.\n";
         return [];
     }
 
     $feriadosData = json_decode($response, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        echo "Advertencia: La respuesta de la API de feriados no es un JSON válido. Se procesará sin feriados.\n";
+        return [];
+    }
+
     $feriados = [];
     foreach ($feriadosData as $feriado) {
-        // Guardamos las fechas en formato 'Y-m-d' para facilitar la comparación
-        $feriados[] = (new DateTime("{$feriado['anio']}-{$feriado['mes']}-{$feriado['dia']}"))->format('Y-m-d');
+        // La fecha viene en el campo 'date' en formato 'Y-m-d'
+        if (isset($feriado['date'])) {
+            $feriados[] = $feriado['date'];
+        }
     }
     return $feriados;
 }
