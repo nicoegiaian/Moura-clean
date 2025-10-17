@@ -1,0 +1,15 @@
+{
+    "name": "nicoe/moura",
+    "description": "Script para procesar archivos de transacciones.",
+    "require": {
+        "phpoffice/phpspreadsheet": "^1.29"
+    },
+    "authors": [
+        {
+            "name": "Nico Egiaian",
+            "email": "nicolas.egiaian@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable"
+}
+
