@@ -1,6 +1,6 @@
 <?php
 
-//// Carga el autoloader de Composer para incluir las librerías necesarias.
+// Carga el autoloader de Composer para incluir las librerías necesarias.
 require 'vendor/autoload.php';
 
 // "Alias" para las clases que vamos a usar.
@@ -9,7 +9,68 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 /**
  * =================================================================
- * FASE 3: MÓDULO DE TRANSFORMACIONES (Versión con Reglas de Negocio Corregidas)
+ * FASE 1: LÓGICA DE FECHAS Y FERIADOS
+ * =================================================================
+ */
+
+/**
+ * Obtiene los feriados de Argentina para un año específico desde una API.
+ * @param string $year
+ * @return array
+ */
+function obtenerFeriados(string $year): array
+{
+    $url = "https://nolaborables.com.ar/api/v2/feriados/{$year}";
+    // Usamos un contexto para manejar posibles errores de la API y definir un timeout
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 5, // 5 segundos de espera máxima
+            'ignore_errors' => true // Para poder leer el cuerpo aunque haya un error 4xx/5xx
+        ]
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        echo "Advertencia: No se pudo conectar a la API de feriados. Se procesará sin considerar feriados.\n";
+        return [];
+    }
+
+    $feriadosData = json_decode($response, true);
+    $feriados = [];
+    foreach ($feriadosData as $feriado) {
+        // Guardamos las fechas en formato 'Y-m-d' para facilitar la comparación
+        $feriados[] = (new DateTime("{$feriado['anio']}-{$feriado['mes']}-{$feriado['dia']}"))->format('Y-m-d');
+    }
+    return $feriados;
+}
+
+/**
+ * Resta una cantidad de días hábiles a una fecha, considerando feriados.
+ * @param DateTime $fechaInicial
+ * @param int $diasARestar
+ * @param array $feriados
+ * @return DateTime
+ */
+function restarDiasHabiles(DateTime $fechaInicial, int $diasARestar, array $feriados): DateTime
+{
+    $fecha = clone $fechaInicial;
+    $diasRestados = 0;
+    while ($diasRestados < $diasARestar) {
+        $fecha->modify('-1 day');
+        $diaDeLaSemana = $fecha->format('N'); // 1 (Lunes) a 7 (Domingo)
+        $esFeriado = in_array($fecha->format('Y-m-d'), $feriados);
+
+        // Si no es Sábado (6), ni Domingo (7), ni feriado, contamos como día hábil restado.
+        if ($diaDeLaSemana < 6 && !$esFeriado) {
+            $diasRestados++;
+        }
+    }
+    return $fecha;
+}
+
+/**
+ * =================================================================
+ * FASE 3: MÓDULO DE TRANSFORMACIONES (Sin cambios)
  * =================================================================
  * Recibe una fila de datos del Excel y aplica las reglas de negocio.
  * @param array $datosOrigen
@@ -68,7 +129,8 @@ function transformarFila(array $datosOrigen): array
     $fechaObjeto = null;
     if (!empty($fechaTrx)) {
         try {
-            $fechaObjeto = DateTime::createFromFormat(DateTime::ATOM, $fechaTrx);
+            // Se asume que la fecha viene en formato ATOM/ISO8601, si no, hay que ajustar el createFromFormat
+            $fechaObjeto = new DateTime($fechaTrx);
                 } catch (Exception $e) {
             $fechaObjeto = null; // No se pudo parsear la fecha
         }
@@ -83,14 +145,11 @@ function transformarFila(array $datosOrigen): array
     $fechaPagoMerchantObj = null;
     if (!empty($fechaPagoMerchantStr)) {
         try {
-            // 1. Creamos un objeto DateTime a partir del string de la fecha
             $fechaPagoMerchantObj = new DateTime($fechaPagoMerchantStr);
         } catch (Exception $e) {
-            $fechaPagoMerchantObj = null; // En caso de error, se mantiene nulo
+            $fechaPagoMerchantObj = null;
         }
     }
-    // 2. Usamos el objeto para formatear. Si el objeto es nulo, usamos el valor por defecto.
-    // Nota: El formato 'Ymd' produce 8 caracteres, por lo que el relleno debe ser de 8 ceros.
     $filaTransformada['FECHA_LIQUIDACION'] = $fechaPagoMerchantObj ? $fechaPagoMerchantObj->format('Ymd') : '00000000'; // 161-168
 
     $filaTransformada['RELLENO_169_176'] = str_pad('', 8, '0'); // 169-176
@@ -101,18 +160,14 @@ function transformarFila(array $datosOrigen): array
     $filaTransformada['FECHA PAGO'] = $fechaObjeto ? $fechaObjeto->format('ymd') : '000000'; // 240-245
     $filaTransformada['TIPO DE TRANSACCION'] = str_pad('', 1, '0'); // 246-246
     $filaTransformada['RELLENO_247_253'] = str_pad('', 7, '0'); // 247-253
-    $filaTransformada['ID_CLIENTE'] = str_pad('', 9, '0'); // 247-253
+    $filaTransformada['ID_CLIENTE'] = str_pad('', 9, '0'); // 254-262
 
     $medioDePago = $datosOrigen['Medio de pago'] ?? '';
-    $cuotas = (int)($datosOrigen['Cuotas'] ?? 0); // Convertimos a número para comparar
-    $formaPago = ''; // Valor por defecto si no se cumple ninguna condición
+    $cuotas = (int)($datosOrigen['Cuotas'] ?? 0);
+    $formaPago = '';
 
     if ($medioDePago === 'CREDIT') {
-        if ($cuotas === 1) {
-            $formaPago = '80';
-        } elseif ($cuotas > 1) {
-            $formaPago = '30';
-        }
+        $formaPago = ($cuotas === 1) ? '80' : '30';
     } elseif ($medioDePago === 'DEBIT') {
         $formaPago = '90';
     } elseif ($medioDePago === 'QR') {
@@ -132,9 +187,7 @@ function transformarFila(array $datosOrigen): array
     // --- NUEVAS REGLAS CORREGIDAS (287-620) ---
     
     $filaTransformada['RELLENO_287_294'] = str_pad('', 8, '0'); // 287-294
-    
     $filaTransformada['ID_TX_PROCESADOR'] = str_pad('', 30, '0'); // 295-324
-
     $filaTransformada['BARRA CUPON DE PAGO'] = str_pad('', 150, '0'); // 325-474
     $filaTransformada['ID GATEWAY'] = str_pad('', 30, '0'); // 475-504
     $filaTransformada['RELLENO 505-534'] = str_pad('', 30, ' '); // 505-534
@@ -144,7 +197,6 @@ function transformarFila(array $datosOrigen): array
     $filaTransformada['BIN DE LA TARJETA'] = str_pad('', 6, '0');// 606-611
     $filaTransformada['ID RUBRO COMERCIO'] = str_pad('', 6, '0');// 612-617
     $filaTransformada['ID PROV CLIENTE'] = str_pad('', 3, '0');// 618-620
-    
     
     return $filaTransformada;
 }
@@ -178,10 +230,52 @@ function ensamblarLinea(array $filaProcesada): string
     return $lineaFinal;
 }
 
-// --- Bucle Principal de Ejecución ---
+/**
+ * =================================================================
+ * FASE 4: BUCLE PRINCIPAL DE EJECUCIÓN
+ * =================================================================
+ */
 
-echo "--- Iniciando el script de procesamiento v6 (Final) ---\n";
+echo "--- Iniciando el script de procesamiento por lotes ---\n";
 
+// --- 1. VALIDACIÓN DEL PARÁMETRO DE ENTRADA ---
+if (!isset($argv[1]) || !preg_match('/^\d{8}$/', $argv[1])) {
+    die("Error: Debe proporcionar una fecha de proceso como parámetro en formato AAAAMMDD.\nEjemplo: php procesador.php 20251013\n");
+}
+$fechaProcesoStr = $argv[1];
+$fechaProceso = DateTime::createFromFormat('Ymd', $fechaProcesoStr);
+echo "Fecha de Proceso recibida: " . $fechaProceso->format('d-m-Y') . "\n";
+
+// --- 2. CÁLCULO DE FECHAS DE NEGOCIO ---
+$feriados = obtenerFeriados($fechaProceso->format('Y'));
+$fechaTransaccion = restarDiasHabiles($fechaProceso, 2, $feriados);
+echo "Fecha de Transacción calculada (-2 días hábiles): " . $fechaTransaccion->format('d-m-Y') . "\n";
+
+$fechasDeNegocio = [];
+// Si la fecha de transacción es Lunes (1), agregamos días anteriores.
+if ($fechaTransaccion->format('N') == 1) {
+    echo "La Fecha de Transacción es Lunes. Se generarán lotes para los días previos.\n";
+    $fechaEvaluar = clone $fechaTransaccion;
+
+    // Agregamos Lunes, Domingo y Sábado
+    $fechasDeNegocio[] = clone $fechaTransaccion;
+    $fechasDeNegocio[] = (clone $fechaTransaccion)->modify('-1 day');
+    $fechasDeNegocio[] = (clone $fechaTransaccion)->modify('-2 days');
+
+    // Verificamos si el Viernes previo fue feriado
+    $viernesPrevio = (clone $fechaTransaccion)->modify('-3 days');
+    if (in_array($viernesPrevio->format('Y-m-d'), $feriados)) {
+        echo "El Viernes previo (" . $viernesPrevio->format('d-m-Y') . ") fue feriado, se incluirá en el proceso.\n";
+        $fechasDeNegocio[] = $viernesPrevio;
+    }
+} else {
+    // Si no es Lunes, solo procesamos la fecha de transacción
+    $fechasDeNegocio[] = $fechaTransaccion;
+}
+// Invertimos el array para procesar las fechas en orden cronológico
+$fechasDeNegocio = array_reverse($fechasDeNegocio);
+
+// --- 3. PROCESAMIENTO DEL ARCHIVO EXCEL POR LOTES ---
 $archivoEntrada = 'input/reporte_transacciones_16-10-2025_15-08-42.xlsx';
 if (!file_exists($archivoEntrada)) {
     die("Error: El archivo de entrada no se encontró en: $archivoEntrada\n");
@@ -190,6 +284,7 @@ if (!file_exists($archivoEntrada)) {
 try {
     $spreadsheet = IOFactory::load($archivoEntrada);
     $hojaDeCalculo = $spreadsheet->getActiveSheet();
+    $datosExcel = iterator_to_array($hojaDeCalculo->getRowIterator(2)); // Leer todas las filas de datos a memoria
 
     $encabezados = [];
     $primeraFila = $hojaDeCalculo->getRowIterator(1, 1)->current();
@@ -197,40 +292,70 @@ try {
         $encabezados[] = $celda->getValue();
     }
     
-    $numeroFila = 0;
-    
-    foreach ($hojaDeCalculo->getRowIterator(2) as $fila) {
-        $numeroFila++;
-        $datosFilaAsociativos = [];
-        $indiceCelda = 0;
+    $numeroLote = 0;
 
-        foreach ($fila->getCellIterator() as $celda) {
-            $nombreColumna = $encabezados[$indiceCelda] ?? 'columna_'.$indiceCelda;
-            $valorCelda = $celda->getValue();
+    foreach ($fechasDeNegocio as $fechaNegocio) {
+        $numeroLote++;
+        $seEncontraronRegistros = false;
 
-            if (Date::isDateTime($celda)) {
-                $valorCelda = Date::excelToDateTimeObject($valorCelda)->format('Y-m-d H:i:s');
+        // --- 3.1. ARMADO DEL HEADER ---
+        $header = "HEADER" .
+                  "A065" .
+                  $fechaNegocio->format('Ymd') .
+                  $fechaProceso->format('Ymd') .
+                  str_pad($numeroLote, 5, '0', STR_PAD_LEFT);
+        
+        // Almacenamos las líneas del lote para imprimirlas juntas
+        $lineasDelLote = [];
+        
+        foreach ($datosExcel as $fila) {
+            $datosFilaAsociativos = [];
+            $indiceCelda = 0;
+            foreach ($fila->getCellIterator() as $celda) {
+                $nombreColumna = $encabezados[$indiceCelda] ?? 'columna_' . $indiceCelda;
+                $valorCelda = $celda->getValue();
+
+                // PhpSpreadsheet a veces devuelve fechas como números de serie de Excel
+                if (Date::isDateTime($celda)) {
+                    $valorCelda = Date::excelToDateTimeObject($valorCelda)->format('Y-m-d H:i:s');
+                }
+
+                $datosFilaAsociativos[$nombreColumna] = $valorCelda;
+                $indiceCelda++;
             }
 
-            $datosFilaAsociativos[$nombreColumna] = $valorCelda;
-            $indiceCelda++;
-        }
+            // --- 3.2. LÓGICA DE FILTRADO ---
+            $estado = $datosFilaAsociativos['Estado'] ?? '';
+            $fechaTrxStr = $datosFilaAsociativos['Fecha trx'] ?? '';
+            
+            if (!empty($fechaTrxStr)) {
+                $fechaTrxObj = new DateTime($fechaTrxStr);
+                
+                // Comparamos si la fecha de la transacción coincide con la fecha del lote actual Y el estado es APPROVED
+                if ($fechaTrxObj->format('Y-m-d') === $fechaNegocio->format('Y-m-d') && $estado === 'APPROVED') {
+                    $seEncontraronRegistros = true;
+                    
+                    // 1. Transformar los datos crudos
+                    $filaProcesada = transformarFila($datosFilaAsociativos);
 
-        // 1. Transformar los datos crudos
-        $filaProcesada = transformarFila($datosFilaAsociativos);
-
-        // 2. Ensamblar la línea de texto final
-        $lineaFinal = ensamblarLinea($filaProcesada);
-        
-        /*echo "Línea #$numeroFila procesada (Longitud: " . strlen($lineaFinal) . "):\n";*/
-        echo $lineaFinal . "\n\n";
-        
-        //descomentar para trabajar con un conjunto de 5 filas o dejar comentado para procesar todo el archivo
-        
-        if ($numeroFila >= 11) {
-            break;
+                    // 2. Ensamblar la línea de texto final
+                    $lineaFinal = ensamblarLinea($filaProcesada);
+                    $lineasDelLote[] = $lineaFinal;
+                }
+            }
         }
-       
+        
+        // --- 3.3. IMPRESIÓN DEL LOTE ---
+        // Solo imprimimos el lote si se encontraron registros para esa fecha
+        if ($seEncontraronRegistros) {
+            echo "\n--- Lote #" . str_pad($numeroLote, 5, '0', STR_PAD_LEFT) . " para Fecha de Negocio: " . $fechaNegocio->format('d-m-Y') . " ---\n";
+            echo $header . "\n";
+            foreach($lineasDelLote as $linea) {
+                echo $linea . "\n"; // Salida limpia sin doble salto de línea
+            }
+        } else {
+             echo "\n--- No se encontraron registros para la Fecha de Negocio: " . $fechaNegocio->format('d-m-Y') . " ---\n";
+        }
     }
 
 } catch (Exception $e) {
@@ -238,4 +363,3 @@ try {
 }
 
 echo "\n--- Fin del script ---\n";
-
