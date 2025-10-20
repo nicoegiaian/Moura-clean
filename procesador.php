@@ -82,7 +82,7 @@ function restarDiasHabiles(DateTime $fechaInicial, int $diasARestar, array $feri
 
 /**
  * =================================================================
- * FASE 3: MÓDULO DE TRANSFORMACIONES (Sin cambios)
+ * FASE 3: MÓDULO DE TRANSFORMACIONES
  * =================================================================
  * Recibe una fila de datos del Excel y aplica las reglas de negocio.
  * @param array $datosOrigen
@@ -114,6 +114,7 @@ function transformarFila(array $datosOrigen): array
     $filaTransformada['CODIGO_SERVICIO'] = str_pad('', 19, ' '); // 59-77
 
     $montoBruto = (float) str_replace(',', '.', $datosOrigen['Monto bruto'] ?? '0');
+    $filaTransformada['__IMPORTE_RAW__'] = $montoBruto; // <-- NUEVO: Campo interno para sumar en el TRAILER
     $montoSinDecimales = $montoBruto * 100;
     $filaTransformada['IMPORTE'] = str_pad($montoSinDecimales, 11, '0', STR_PAD_LEFT); // 78-88
 
@@ -319,6 +320,8 @@ try {
         
         // Almacenamos las líneas del lote para imprimirlas juntas
         $lineasDelLote = [];
+        $totalRegistrosLote = 0; // <-- NUEVO: Contador para el TRAILER
+        $totalImporteLote = 0.0; // <-- NUEVO: Acumulador para el TRAILER
         
         foreach ($datosExcel as $fila) {
             $datosFilaAsociativos = [];
@@ -353,6 +356,10 @@ try {
                     // 2. Ensamblar la línea de texto final
                     $lineaFinal = ensamblarLinea($filaProcesada);
                     $lineasDelLote[] = $lineaFinal;
+                    
+                    // 3. Acumular para el TRAILER // <-- NUEVO
+                    $totalRegistrosLote++;
+                    $totalImporteLote += $filaProcesada['__IMPORTE_RAW__'];
                 }
             }
         }
@@ -361,10 +368,39 @@ try {
         // Solo imprimimos el lote si se encontraron registros para esa fecha
         if ($seEncontraronRegistros) {
             echo "\n--- Lote #" . str_pad($numeroLote, 5, '0', STR_PAD_LEFT) . " para Fecha de Negocio: " . $fechaNegocio->format('d-m-Y') . " ---\n";
+            // Imprimir Header
             echo $header . "\n";
+            
+            // Imprimir Líneas de Datos
             foreach($lineasDelLote as $linea) {
-                echo $linea . "\n"; // Salida limpia sin doble salto de línea
+                echo $linea . "\n";
             }
+
+            // --- 3.4. ARMADO DEL TRAILER --- // <-- BLOQUE TOTALMENTE NUEVO
+            
+            // 1. "TRAILER" (Pos 1-7)
+            $trailer = "TRAILER";
+            
+            // 2. Cantidad de registros (Pos 8-15)
+            $trailer .= str_pad($totalRegistrosLote, 8, '0', STR_PAD_LEFT);
+            
+            // 3. Importe (Pos 16-28)
+            // Formatear el importe a 2 decimales, sin separador de miles
+            $importeFormateado = number_format($totalImporteLote, 2, '.', '');
+            // Separar parte entera y decimal
+            list($parteEntera, $parteDecimal) = explode('.', $importeFormateado);
+            
+            // Rellenar parte entera (11 chars, pos 16-26)
+            $trailer .= str_pad($parteEntera, 11, '0', STR_PAD_LEFT);
+            // Rellenar parte decimal (2 chars, pos 27-28)
+            $trailer .= str_pad($parteDecimal, 2, '0', STR_PAD_LEFT);
+            
+            // 4. Cantidad de trx (Pos 29-36) - (Repite el campo 2)
+            $trailer .= str_pad($totalRegistrosLote, 8, '0', STR_PAD_LEFT);
+            
+            // Imprimir el TRAILER
+            echo $trailer . "\n";
+            
         } else {
              echo "\n--- No se encontraron registros para la Fecha de Negocio: " . $fechaNegocio->format('d-m-Y') . " ---\n";
         }
