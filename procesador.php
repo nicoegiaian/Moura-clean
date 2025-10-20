@@ -264,6 +264,16 @@ $feriados = obtenerFeriados($fechaProceso->format('Y'));
 $fechaTransaccion = restarDiasHabiles($fechaProceso, 2, $feriados);
 echo "Fecha de Transacción calculada (-2 días hábiles): " . $fechaTransaccion->format('d-m-Y') . "\n";
 
+// --- 2.1. CÁLCULO DE EXTENSIÓN DE ARCHIVO --- //
+$mesNum = (int)$fechaTransaccion->format('n'); // 'n' da el mes sin ceros (1-12)
+$diaStr = $fechaTransaccion->format('d'); // 'd' da el día con cero (01-31)
+$mapaMeses = [
+    1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6',
+    7 => '7', 8 => '8', 9 => '9', 10 => 'A', 11 => 'B', 12 => 'C'
+];
+$extensionCalculada = $mapaMeses[$mesNum] . $diaStr;
+echo "Extensión de archivo calculada (basada en Fecha Trx): " . $extensionCalculada . "\n";
+
 $fechasDeNegocio = [];
 // Si la fecha de transacción es Lunes (1), agregamos días anteriores.
 if ($fechaTransaccion->format('N') == 1) {
@@ -305,13 +315,22 @@ try {
         $encabezados[] = $celda->getValue();
     }
     
+    // --- 3.1. VERIFICAR/CREAR DIRECTORIO DE SALIDA --- // 
+    $directorioSalida = 'output';
+    if (!is_dir($directorioSalida)) {
+        echo "Creando directorio de salida en: $directorioSalida\n";
+        if (!mkdir($directorioSalida, 0777, true)) {
+            die("Error: No se pudo crear el directorio de salida: $directorioSalida\n");
+        }
+    }
+
     $numeroLote = 0;
 
     foreach ($fechasDeNegocio as $fechaNegocio) {
         $numeroLote++;
         $seEncontraronRegistros = false;
 
-        // --- 3.1. ARMADO DEL HEADER ---
+        // --- 3.2. ARMADO DEL HEADER ---
         $header = "HEADER" .
                   "A065" .
                   $fechaNegocio->format('Ymd') .
@@ -339,7 +358,7 @@ try {
                 $indiceCelda++;
             }
 
-            // --- 3.2. LÓGICA DE FILTRADO ---
+            // --- 3.3. LÓGICA DE FILTRADO ---
             $estado = $datosFilaAsociativos['Estado'] ?? '';
             $fechaTrxStr = $datosFilaAsociativos['Fecha trx'] ?? '';
             
@@ -364,19 +383,35 @@ try {
             }
         }
         
-        // --- 3.3. IMPRESIÓN DEL LOTE ---
-        // Solo imprimimos el lote si se encontraron registros para esa fecha
+        // --- 3.4. GENERACIÓN DE ARCHIVO DE LOTE --- // 
+        // Solo generamos archivo si se encontraron registros para esa fecha
         if ($seEncontraronRegistros) {
-            echo "\n--- Lote #" . str_pad($numeroLote, 5, '0', STR_PAD_LEFT) . " para Fecha de Negocio: " . $fechaNegocio->format('d-m-Y') . " ---\n";
-            // Imprimir Header
-            echo $header . "\n";
             
-            // Imprimir Líneas de Datos
-            foreach($lineasDelLote as $linea) {
-                echo $linea . "\n";
+            // --- 3.4.1. Definir nombre de archivo --- // <-- NUEVO
+            // Nombre: "A065BOTON" + "Fecha de negocio" en formato "ddmmaa"
+            $nombreArchivoBase = 'A065BOTON' . $fechaNegocio->format('dmy'); // 'dmy' es ddmmaa
+            // Ruta completa: output/A065BOTONXXXXXX.EXT
+            $rutaArchivoCompleta = $directorioSalida . '/' . $nombreArchivoBase . '.' . $extensionCalculada;
+
+            echo "\n--- Lote #" . str_pad($numeroLote, 5, '0', STR_PAD_LEFT) . " para Fecha " . $fechaNegocio->format('d-m-Y') . " ---\n";
+            echo "    -> Generando archivo: " . $rutaArchivoCompleta . "\n"; // <-- MODIFICADO
+            
+            // --- 3.4.2. Abrir y escribir archivo --- // <-- NUEVO
+            $archivoSalida = fopen($rutaArchivoCompleta, 'w');
+            if (!$archivoSalida) {
+                echo "    -> ERROR: No se pudo abrir el archivo de salida. Omitiendo este lote.\n";
+                continue; // Salta a la siguiente fecha de negocio
             }
 
-            // --- 3.4. ARMADO DEL TRAILER --- // <-- BLOQUE TOTALMENTE NUEVO
+            // Escribir Header
+            fwrite($archivoSalida, $header . "\n"); // <-- MODIFICADO (era echo)
+            
+            // Escribir Líneas de Datos
+            foreach($lineasDelLote as $linea) {
+                fwrite($archivoSalida, $linea . "\n"); // <-- MODIFICADO (era echo)
+            }
+
+            // --- 3.4.3. ARMADO Y ESCRITURA DEL TRAILER --- //
             
             // 1. "TRAILER" (Pos 1-7)
             $trailer = "TRAILER";
@@ -385,22 +420,20 @@ try {
             $trailer .= str_pad($totalRegistrosLote, 8, '0', STR_PAD_LEFT);
             
             // 3. Importe (Pos 16-28)
-            // Formatear el importe a 2 decimales, sin separador de miles
             $importeFormateado = number_format($totalImporteLote, 2, '.', '');
-            // Separar parte entera y decimal
             list($parteEntera, $parteDecimal) = explode('.', $importeFormateado);
-            
-            // Rellenar parte entera (11 chars, pos 16-26)
             $trailer .= str_pad($parteEntera, 11, '0', STR_PAD_LEFT);
-            // Rellenar parte decimal (2 chars, pos 27-28)
             $trailer .= str_pad($parteDecimal, 2, '0', STR_PAD_LEFT);
             
             // 4. Cantidad de trx (Pos 29-36) - (Repite el campo 2)
             $trailer .= str_pad($totalRegistrosLote, 8, '0', STR_PAD_LEFT);
             
-            // Imprimir el TRAILER
-            echo $trailer . "\n";
+            // Escribir el TRAILER
+            fwrite($archivoSalida, $trailer . "\n"); // <-- MODIFICADO (era echo)
             
+            // Cerrar el archivo
+            fclose($archivoSalida); 
+
         } else {
              echo "\n--- No se encontraron registros para la Fecha de Negocio: " . $fechaNegocio->format('d-m-Y') . " ---\n";
         }
