@@ -1696,7 +1696,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$mLiquidacion = ltrim(substr($fechaLiquidacionDDMMAA, 2, 2), '0'); // Mes (con 0 a la izquierda removido si existe)
 		$aLiquidacion = substr($fechaLiquidacionDDMMAA, 4, 2);           // Año (siempre dos caracteres)
 		
-		descargarArchivo($nombreArchivo);
+		//descargarArchivo($nombreArchivo);
 		
 		
 		// Abrir el archivo en modo de solo lectura
@@ -1774,7 +1774,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			$nombreArchivo = 'A065DEVBOTON' . $a . (strlen($m) == 2 ? $m : '0' . $m) . $d . '.' . $mExtensionBIND . $dExtensionBIND;
 		}
 		
-		descargarArchivo($nombreArchivo);
+		//descargarArchivo($nombreArchivo);
 		
 		// Abrir el archivo en modo de solo lectura
 		$archivoBIND = fopen(DIR_RAIZ . $nombreArchivo, 'r');
