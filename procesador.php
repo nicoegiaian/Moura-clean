@@ -9,18 +9,21 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Spreadsheet; 
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx; 
 
-/**
+/*
  * =================================================================
  * FASE 1: LÓGICA DE FECHAS Y FERIADOS
  * =================================================================
  */
+ /* Por si a futuro se decide conectarse con algun servicio free de feriados
+function obtenerFeriados(string $year): array
 
-/**
+/*
  * Obtiene los feriados de Argentina para un año específico desde la API de Nager.Date.
  * @param string $year
  * @return array
  */
-function obtenerFeriados(string $year): array
+
+/*
 {
     // Nueva URL de la API alternativa (Nager.Date)
     $url = "https://date.nager.at/api/v3/PublicHolidays/{$year}/AR";
@@ -57,14 +60,15 @@ function obtenerFeriados(string $year): array
     }
     return $feriados;
 }
+    fin funcion de conexion a servicio de feriados */ 
 
-/**
+/*
  * Resta una cantidad de días hábiles a una fecha, considerando feriados.
  * @param DateTime $fechaInicial
  * @param int $diasARestar
  * @param array $feriados
  * @return DateTime
- */
+ 
 function restarDiasHabiles(DateTime $fechaInicial, int $diasARestar, array $feriados): DateTime
 {
     $fecha = clone $fechaInicial;
@@ -81,6 +85,7 @@ function restarDiasHabiles(DateTime $fechaInicial, int $diasARestar, array $feri
     }
     return $fecha;
 }
+*/
 
 /**
  * =================================================================
@@ -261,47 +266,76 @@ $fechaProcesoStr = $argv[1];
 $fechaProceso = DateTime::createFromFormat('Ymd', $fechaProcesoStr);
 echo "Fecha de Proceso recibida: " . $fechaProceso->format('d-m-Y') . "\n";
 
-// --- 2. CÁLCULO DE FECHAS DE NEGOCIO ---
-$feriados = obtenerFeriados($fechaProceso->format('Y'));
-$fechaTransaccion = restarDiasHabiles($fechaProceso, 2, $feriados);
-echo "Fecha de Transacción calculada (-2 días hábiles): " . $fechaTransaccion->format('d-m-Y') . "\n";
-
-// --- 2.1. CÁLCULO DE EXTENSIÓN DE ARCHIVO --- //
-$mesNum = (int)$fechaTransaccion->format('n'); // 'n' da el mes sin ceros (1-12)
-$diaStr = $fechaTransaccion->format('d'); // 'd' da el día con cero (01-31)
+// --- 2. CÁLCULO DE EXTENSIÓN DE ARCHIVO  ---
+echo "--- 2. CÁLCULO DE EXTENSIÓN DE ARCHIVO ---\n";
 $mapaMeses = [
     1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6',
     7 => '7', 8 => '8', 9 => '9', 10 => 'A', 11 => 'B', 12 => 'C'
 ];
-$extensionCalculada = $mapaMeses[$mesNum] . $diaStr;
-echo "Extensión de archivo calculada (basada en Fecha Trx): " . $extensionCalculada . "\n";
 
-$fechasDeNegocio = [];
-// Si la fecha de transacción es Lunes (1), agregamos días anteriores.
-if ($fechaTransaccion->format('N') == 1) {
-    echo "La Fecha de Transacción es Lunes. Se generarán lotes para los días previos.\n";
-    $fechaEvaluar = clone $fechaTransaccion;
+// Formatear la fecha de proceso en todos los formatos que usa FERIADOS
+$f_ymd = $fechaProceso->format('ymd');   // 251018
+$f_Ymd = $fechaProceso->format('Ymd');   // 20251018
+$f_dmy = $fechaProceso->format('dmy');   // 181025
+$f_dmY = $fechaProceso->format('dmY');   // 18102025
 
-    // Agregamos Lunes, Domingo y Sábado
-    $fechasDeNegocio[] = clone $fechaTransaccion;
-    $fechasDeNegocio[] = (clone $fechaTransaccion)->modify('-1 day');
-    $fechasDeNegocio[] = (clone $fechaTransaccion)->modify('-2 days');
+// Chequeamos si la FechaProceso es feriado usando la constante
+$esFeriado = in_array($f_ymd, FERIADOS, true) || 
+             in_array($f_Ymd, FERIADOS, true) || 
+             in_array($f_dmy, FERIADOS, true) || 
+             in_array($f_dmY, FERIADOS, true);
+             
+$diaDeLaSemana = (int)$fechaProceso->format('N'); // 1 (Lunes) a 7 (Domingo)
+$esFinDeSemana = ($diaDeLaSemana >= 6); // Sábado (6) o Domingo (7)
 
-    // Verificamos si el Viernes previo fue feriado
-    $viernesPrevio = (clone $fechaTransaccion)->modify('-3 days');
-    if (in_array($viernesPrevio->format('Y-m-d'), $feriados)) {
-        echo "El Viernes previo (" . $viernesPrevio->format('d-m-Y') . ") fue feriado, se incluirá en el proceso.\n";
-        $fechasDeNegocio[] = $viernesPrevio;
+$fechaParaExtension = clone $fechaProceso;
+
+// Si es Sábado, Domingo o Feriado, calculamos el próximo día hábil
+if ($esFinDeSemana || $esFeriado) {
+    if ($esFinDeSemana) {
+        echo "FechaProceso es fin de semana. Calculando siguiente día hábil...\n";
+    } else {
+        echo "FechaProceso es feriado. Calculando siguiente día hábil...\n";
+    }
+    
+    // Iterar hasta encontrar un día hábil
+    while (true) {
+        $fechaParaExtension->modify('+1 day');
+        $diaLoop = (int)$fechaParaExtension->format('N');
+        
+        if ($diaLoop >= 6) { // Sigue siendo fin de semana, continuar
+            continue;
+        }
+
+        // No es fin de semana, chequear si es feriado
+        $f_ymd_loop = $fechaParaExtension->format('ymd');
+        $f_Ymd_loop = $fechaParaExtension->format('Ymd');
+        $f_dmy_loop = $fechaParaExtension->format('dmy');
+        $f_dmY_loop = $fechaParaExtension->format('dmY');
+        
+        $esFeriadoLoop = in_array($f_ymd_loop, FERIADOS, true) || 
+                         in_array($f_Ymd_loop, FERIADOS, true) || 
+                         in_array($f_dmy_loop, FERIADOS, true) || 
+                         in_array($f_dmY_loop, FERIADOS, true);
+
+        if (!$esFeriadoLoop) {
+            // ¡Encontrado! No es fin de semana y no es feriado.
+            break;
+        }
     }
 } else {
-    // Si no es Lunes, solo procesamos la fecha de transacción
-    $fechasDeNegocio[] = $fechaTransaccion;
+     echo "FechaProceso es día hábil. La extensión se basará en esta fecha.\n";
 }
-// Invertimos el array para procesar las fechas en orden cronológico
-$fechasDeNegocio = array_reverse($fechasDeNegocio);
+
+echo "Fecha para Extensión calculada: " . $fechaParaExtension->format('d-m-Y') . "\n";
+
+$mesNum = (int)$fechaParaExtension->format('n'); // 'n' da el mes sin ceros (1-12)
+$diaStr = $fechaParaExtension->format('d'); // 'd' da el día con cero (01-31)
+$extensionCalculada = $mapaMeses[$mesNum] . $diaStr;
+echo "Extensión de archivo calculada: " . $extensionCalculada . "\n";
 
 // --- 3. PROCESAMIENTO DEL ARCHIVO EXCEL POR LOTES ---
-$archivoEntrada = 'input/reporte_transacciones_16-10-2025_15-08-42.xlsx';
+$archivoEntrada = 'input/reporte_transacciones_21-10-2025_15-08-42.xlsx';
 if (!file_exists($archivoEntrada)) {
     die("Error: El archivo de entrada no se encontró en: $archivoEntrada\n");
 }
@@ -379,91 +413,88 @@ try {
         }
     }
 
-    $numeroLote = 0;
+    $seEncontraronRegistros = false;
 
-    foreach ($fechasDeNegocio as $fechaNegocio) {
-        $numeroLote++;
-        $seEncontraronRegistros = false;
+    // --- 3.3 ARMADO DEL HEADER ---
+    // Usamos $fechaProceso para ambos campos de fecha y '1' para el lote.
+    $header = "HEADER" .
+              "A065" .
+              $fechaProceso->format('Ymd') .
+              $fechaProceso->format('Ymd') .
+              str_pad('1', 5, '0', STR_PAD_LEFT);
+    
+    // Almacenamos las líneas del lote para imprimirlas juntas
+    $lineasDelLote = [];
+    $totalRegistrosLote = 0; // Contador para el TRAILER
+    $totalImporteLote = 0.0; // Acumulador para el TRAILER
+    
+    foreach ($datosExcel as $fila) {
+        $datosFilaAsociativos = [];
+        $indiceCelda = 0;
+        foreach ($fila->getCellIterator() as $celda) {
+            $nombreColumna = $encabezados[$indiceCelda] ?? 'columna_' . $indiceCelda;
+            $valorCelda = $celda->getValue();
 
-        // --- 3.3 ARMADO DEL HEADER ---
-        $header = "HEADER" .
-                  "A065" .
-                  $fechaNegocio->format('Ymd') .
-                  $fechaProceso->format('Ymd') .
-                  str_pad($numeroLote, 5, '0', STR_PAD_LEFT);
-        
-        // Almacenamos las líneas del lote para imprimirlas juntas
-        $lineasDelLote = [];
-        $totalRegistrosLote = 0; // <-- NUEVO: Contador para el TRAILER
-        $totalImporteLote = 0.0; // <-- NUEVO: Acumulador para el TRAILER
-        
-        foreach ($datosExcel as $fila) {
-            $datosFilaAsociativos = [];
-            $indiceCelda = 0;
-            foreach ($fila->getCellIterator() as $celda) {
-                $nombreColumna = $encabezados[$indiceCelda] ?? 'columna_' . $indiceCelda;
-                $valorCelda = $celda->getValue();
-
-                // PhpSpreadsheet a veces devuelve fechas como números de serie de Excel
-                if (Date::isDateTime($celda)) {
-                    $valorCelda = Date::excelToDateTimeObject($valorCelda)->format('Y-m-d H:i:s');
-                }
-
-                $datosFilaAsociativos[$nombreColumna] = $valorCelda;
-                $indiceCelda++;
+            // PhpSpreadsheet a veces devuelve fechas como números de serie de Excel
+            if (Date::isDateTime($celda)) {
+                $valorCelda = Date::excelToDateTimeObject($valorCelda)->format('Y-m-d H:i:s');
             }
 
-            // --- 3.4 LÓGICA DE FILTRADO ---
-            $estado = $datosFilaAsociativos['Estado'] ?? '';
-            $fechaTrxStr = $datosFilaAsociativos['Fecha trx'] ?? '';
-            
-            if (!empty($fechaTrxStr)) {
-                $fechaTrxObj = new DateTime($fechaTrxStr);
-                
-                // Comparamos si la fecha de la transacción coincide con la fecha del lote actual Y el estado es APPROVED
-                if ($fechaTrxObj->format('Y-m-d') === $fechaNegocio->format('Y-m-d') && $estado === 'APPROVED') {
-                    $seEncontraronRegistros = true;
-                    
-                    // 3.4.1. Transformar los datos crudos
-                    $filaProcesada = transformarFila($datosFilaAsociativos);
+            $datosFilaAsociativos[$nombreColumna] = $valorCelda;
+            $indiceCelda++;
+        }
 
-                    // 3.4.2. Ensamblar la línea de texto final
-                    $lineaFinal = ensamblarLinea($filaProcesada);
-                    $lineasDelLote[] = $lineaFinal;
-                    
-                    // 3.4.3. Acumular para el TRAILER // <-- NUEVO
-                    $totalRegistrosLote++;
-                    $totalImporteLote += $filaProcesada['__IMPORTE_RAW__'];
-                }
+        // --- 3.4 LÓGICA DE FILTRADO ---
+        $estado = $datosFilaAsociativos['Estado'] ?? '';
+        $fechaTrxStr = $datosFilaAsociativos['Fecha trx'] ?? '';
+        
+        if (!empty($fechaTrxStr)) {
+            $fechaTrxObj = new DateTime($fechaTrxStr);
+            
+            // Comparamos si la 'Fecha trx' coincide con la 'FechaProceso' Y el estado es APPROVED
+            if ($fechaTrxObj->format('Y-m-d') === $fechaProceso->format('Y-m-d') && $estado === 'APPROVED') {
+                $seEncontraronRegistros = true;
+                
+                // 3.4.1. Transformar los datos crudos
+                $filaProcesada = transformarFila($datosFilaAsociativos);
+
+                // 3.4.2. Ensamblar la línea de texto final
+                $lineaFinal = ensamblarLinea($filaProcesada);
+                $lineasDelLote[] = $lineaFinal;
+                
+                // 3.4.3. Acumular para el TRAILER
+                $totalRegistrosLote++;
+                $totalImporteLote += $filaProcesada['__IMPORTE_RAW__'];
             }
         }
+    }
+    
+    // --- 3.5. GENERACIÓN DE ARCHIVO DE LOTE --- // 
+    // Solo generamos archivo si se encontraron registros para esa fecha
+    if ($seEncontraronRegistros) {
         
-        // --- 3.5. GENERACIÓN DE ARCHIVO DE LOTE --- // 
-        // Solo generamos archivo si se encontraron registros para esa fecha
-        if ($seEncontraronRegistros) {
-            
-            // --- 3.5.1. Definir nombre de archivo --- // <-- NUEVO
-            // Nombre: "A065BOTON" + "Fecha de negocio" en formato "ddmmaa"
-            $nombreArchivoBase = 'A065BOTON' . $fechaNegocio->format('dmy'); // 'dmy' es ddmmaa
-            // Ruta completa: output/A065BOTONXXXXXX.EXT
-            $rutaArchivoCompleta = $directorioSalida . '/' . $nombreArchivoBase . '.' . $extensionCalculada;
+        // --- 3.5.1. Definir nombre de archivo --- //
+        // Nombre: "A065BOTON" + "FechaProceso" en formato "ddmmaa"
+        $nombreArchivoBase = 'A065BOTON' . $fechaProceso->format('dmy'); // 'dmy' es ddmmaa
+        // Ruta completa: output/A065BOTONXXXXXX.EXT
+        $rutaArchivoCompleta = $directorioSalida . '/' . $nombreArchivoBase . '.' . $extensionCalculada;
 
-            echo "\n--- Lote #" . str_pad($numeroLote, 5, '0', STR_PAD_LEFT) . " para Fecha " . $fechaNegocio->format('d-m-Y') . " ---\n";
-            echo "    -> Generando archivo: " . $rutaArchivoCompleta . "\n"; // <-- MODIFICADO
-            
-            // --- 3.5.2. Abrir y escribir archivo --- // <-- NUEVO
-            $archivoSalida = fopen($rutaArchivoCompleta, 'w');
-            if (!$archivoSalida) {
-                echo "    -> ERROR: No se pudo abrir el archivo de salida. Omitiendo este lote.\n";
-                continue; // Salta a la siguiente fecha de negocio
-            }
+        echo "\n--- Lote #1 para Fecha Proceso " . $fechaProceso->format('d-m-Y') . " ---\n";
+        echo "    -> Generando archivo: " . $rutaArchivoCompleta . "\n";
+        
+        // --- 3.5.2. Abrir y escribir archivo --- //
+        $archivoSalida = fopen($rutaArchivoCompleta, 'w');
+        if (!$archivoSalida) {
+            echo "    -> ERROR: No se pudo abrir el archivo de salida. Omitiendo este lote.\n";
+            // No hay 'continue' porque no estamos en un loop
+        } else {
 
             // Escribir Header
-            fwrite($archivoSalida, $header . "\n"); // <-- MODIFICADO (era echo)
+            fwrite($archivoSalida, $header . "\n");
             
             // Escribir Líneas de Datos
             foreach($lineasDelLote as $linea) {
-                fwrite($archivoSalida, $linea . "\n"); // <-- MODIFICADO (era echo)
+                fwrite($archivoSalida, $linea . "\n");
             }
 
             // --- 3.5.3. ARMADO Y ESCRITURA DEL TRAILER --- //
@@ -484,14 +515,14 @@ try {
             $trailer .= str_pad($totalRegistrosLote, 8, '0', STR_PAD_LEFT);
             
             // Escribir el TRAILER
-            fwrite($archivoSalida, $trailer . "\n"); // <-- MODIFICADO (era echo)
+            fwrite($archivoSalida, $trailer . "\n");
             
             // Cerrar el archivo
             fclose($archivoSalida); 
-
-        } else {
-             echo "\n--- No se encontraron registros para la Fecha de Negocio: " . $fechaNegocio->format('d-m-Y') . " ---\n";
         }
+
+    } else {
+         echo "\n--- No se encontraron registros para la Fecha de Proceso: " . $fechaProceso->format('d-m-Y') . " ---\n";
     }
 
 } catch (Exception $e) {
