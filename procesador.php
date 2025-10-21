@@ -2,7 +2,7 @@
 
 // Carga el autoloader de Composer para incluir las librerías necesarias.
 require 'vendor/autoload.php';
-require_once 'constants.php';
+require_once 'api/constants.php';
 
 // "Alias" para las clases que vamos a usar.
 use PhpOffice\PhpSpreadsheet\IOFactory;
