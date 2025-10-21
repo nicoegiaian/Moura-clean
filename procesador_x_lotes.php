@@ -6,8 +6,6 @@ require 'vendor/autoload.php';
 // "Alias" para las clases que vamos a usar.
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
-use PhpOffice\PhpSpreadsheet\Spreadsheet; 
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx; 
 
 /**
  * =================================================================
@@ -317,60 +315,7 @@ try {
         $encabezados[] = $celda->getValue();
     }
     
-    // 3.1 (Generar archivocuotas.xlsx) ---
-    echo "Generando archivo 'archivocuotas.xlsx'...\n";
-    
-    // 3.1.1. Crear un nuevo objeto Spreadsheet
-    $spreadsheetCuotas = new Spreadsheet();
-    $sheetCuotas = $spreadsheetCuotas->getActiveSheet();
-    $sheetCuotas->setTitle('Cuotas');
-
-    // 3.1.2. Escribir las cabeceras
-    $sheetCuotas->setCellValue('A1', 'Transaccion');
-    $sheetCuotas->setCellValue('B1', 'Cuotas');
-
-    $filaCuotas = 2; // Fila de inicio de datos
-    $registrosCuotas = 0;
-
-    // 3.1.3. Recorrer los datos del Excel que ya tenemos en memoria
-    foreach ($datosExcel as $fila) {
-        // Convertimos la fila en un array asociativo (mismo método que usa el script)
-        $datosFilaAsociativos = [];
-        $indiceCelda = 0;
-        foreach ($fila->getCellIterator() as $celda) {
-            $nombreColumna = $encabezados[$indiceCelda] ?? 'columna_' . $indiceCelda;
-            $valorCelda = $celda->getValue();
-            $datosFilaAsociativos[$nombreColumna] = $valorCelda;
-            $indiceCelda++;
-        }
-
-        // 3.1.4. FILTRAR: Solo nos interesan las transacciones aprobadas
-        $estado = $datosFilaAsociativos['Estado'] ?? '';
-        if ($estado === 'APPROVED') {
-            
-            // 3.1.5. OBTENER DATOS: Mapeamos las columnas que nos pediste
-            $nroOperacion = $datosFilaAsociativos['Número de operación'] ?? '';
-            $cuotas = $datosFilaAsociativos['Cuotas'] ?? '1'; // Default a 1 si está vacío
-
-            // 3.1.6. ESCRIBIR EN EL NUEVO EXCEL
-            $sheetCuotas->setCellValue('A' . $filaCuotas, $nroOperacion);
-            $sheetCuotas->setCellValue('B' . $filaCuotas, (int)$cuotas); // Aseguramos que sea un número
-            
-            $filaCuotas++;
-            $registrosCuotas++;
-        }
-    }
-
-    // 3.1.7. GUARDAR EL ARCHIVO
-    $writer = new Xlsx($spreadsheetCuotas);
-    // Lo guardamos en el directorio raíz, donde 'archivosdiarios.php' espera encontrarlo.
-    $rutaArchivoCuotas = 'archivocuotas.xlsx'; 
-    $writer->save($rutaArchivoCuotas);
-
-    echo "Archivo 'archivocuotas.xlsx' generado con $registrosCuotas registros.\n";
-    // --- FIN Generacion de Archivo cuotas ---
-    
-    // --- 3.2 VERIFICAR/CREAR DIRECTORIO DE SALIDA --- // 
+    // --- 3.1. VERIFICAR/CREAR DIRECTORIO DE SALIDA --- // 
     $directorioSalida = 'output';
     if (!is_dir($directorioSalida)) {
         echo "Creando directorio de salida en: $directorioSalida\n";
@@ -385,7 +330,7 @@ try {
         $numeroLote++;
         $seEncontraronRegistros = false;
 
-        // --- 3.3 ARMADO DEL HEADER ---
+        // --- 3.2. ARMADO DEL HEADER ---
         $header = "HEADER" .
                   "A065" .
                   $fechaNegocio->format('Ymd') .
@@ -413,7 +358,7 @@ try {
                 $indiceCelda++;
             }
 
-            // --- 3.4 LÓGICA DE FILTRADO ---
+            // --- 3.3. LÓGICA DE FILTRADO ---
             $estado = $datosFilaAsociativos['Estado'] ?? '';
             $fechaTrxStr = $datosFilaAsociativos['Fecha trx'] ?? '';
             
@@ -424,25 +369,25 @@ try {
                 if ($fechaTrxObj->format('Y-m-d') === $fechaNegocio->format('Y-m-d') && $estado === 'APPROVED') {
                     $seEncontraronRegistros = true;
                     
-                    // 3.4.1. Transformar los datos crudos
+                    // 1. Transformar los datos crudos
                     $filaProcesada = transformarFila($datosFilaAsociativos);
 
-                    // 3.4.2. Ensamblar la línea de texto final
+                    // 2. Ensamblar la línea de texto final
                     $lineaFinal = ensamblarLinea($filaProcesada);
                     $lineasDelLote[] = $lineaFinal;
                     
-                    // 3.4.3. Acumular para el TRAILER // <-- NUEVO
+                    // 3. Acumular para el TRAILER // <-- NUEVO
                     $totalRegistrosLote++;
                     $totalImporteLote += $filaProcesada['__IMPORTE_RAW__'];
                 }
             }
         }
         
-        // --- 3.5. GENERACIÓN DE ARCHIVO DE LOTE --- // 
+        // --- 3.4. GENERACIÓN DE ARCHIVO DE LOTE --- // 
         // Solo generamos archivo si se encontraron registros para esa fecha
         if ($seEncontraronRegistros) {
             
-            // --- 3.5.1. Definir nombre de archivo --- // <-- NUEVO
+            // --- 3.4.1. Definir nombre de archivo --- // <-- NUEVO
             // Nombre: "A065BOTON" + "Fecha de negocio" en formato "ddmmaa"
             $nombreArchivoBase = 'A065BOTON' . $fechaNegocio->format('dmy'); // 'dmy' es ddmmaa
             // Ruta completa: output/A065BOTONXXXXXX.EXT
@@ -451,7 +396,7 @@ try {
             echo "\n--- Lote #" . str_pad($numeroLote, 5, '0', STR_PAD_LEFT) . " para Fecha " . $fechaNegocio->format('d-m-Y') . " ---\n";
             echo "    -> Generando archivo: " . $rutaArchivoCompleta . "\n"; // <-- MODIFICADO
             
-            // --- 3.5.2. Abrir y escribir archivo --- // <-- NUEVO
+            // --- 3.4.2. Abrir y escribir archivo --- // <-- NUEVO
             $archivoSalida = fopen($rutaArchivoCompleta, 'w');
             if (!$archivoSalida) {
                 echo "    -> ERROR: No se pudo abrir el archivo de salida. Omitiendo este lote.\n";
@@ -466,7 +411,7 @@ try {
                 fwrite($archivoSalida, $linea . "\n"); // <-- MODIFICADO (era echo)
             }
 
-            // --- 3.5.3. ARMADO Y ESCRITURA DEL TRAILER --- //
+            // --- 3.4.3. ARMADO Y ESCRITURA DEL TRAILER --- //
             
             // 1. "TRAILER" (Pos 1-7)
             $trailer = "TRAILER";
