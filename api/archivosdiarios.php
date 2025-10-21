@@ -1666,23 +1666,50 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		
 		$fechaurl=$_GET['fecha'];
 		
+		// 21/10 [Nico E] : Corrijo logica de calculo de extension del archivo BIND
+		// Definir el mapa de conversión de meses para la EXTENSIÓN
+		$mapaMeses = [
+			1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6',
+			7 => '7', 8 => '8', 9 => '9', 10 => 'A', 11 => 'B', 12 => 'C'
+		];
+		// --- FIn de le logica de extension--
+
 		// Separar la fecha en día, mes y año
 		$d = substr($fechaurl, 0, 2);           // Día (siempre dos caracteres)
-		$m = ltrim(substr($fechaurl, 2, 2), '0'); // Mes (con 0 a la izquierda removido si existe)
+		
+		// 21/10 [Nico E] : Corrijo logica de calculo de extension del archivo BIND
+		$m_NUMERICO = (int)ltrim(substr($fechaurl, 2, 2), '0'); // Mes como número (ej: 10)
+		$m_EXTENSION = $mapaMeses[$m_NUMERICO]; // Mes convertido a extensión (ej: A)
+		// Dejamos $m (numérico) para el nombre del archivo A065DEVBOTON
+		$m = ltrim(substr($fechaurl, 2, 2), '0');
+		// --- FIn de le logica de extension--
+
 		$a = substr($fechaurl, 4, 2);           // Año (siempre dos caracteres)
 		
 		$fechaExtensionBINDDDMMAA = obtenerProximoDiaHabilDDMMAA($fechaurl);
 		
 		// Separar la fecha de Liquidacion en día, mes y año para usar en la extension del nombre de archivo 
+		// Separar la fecha de Liquidacion en día, mes y año para usar en la extension del nombre de archivo 
+		// 21/10 [Nico E] : Corrijo logica de calculo de extension del archivo BIND
 		$dExtensionBIND = substr($fechaExtensionBINDDDMMAA, 0, 2);           // Día (siempre dos caracteres)
-		$mExtensionBIND = ltrim(substr($fechaExtensionBINDDDMMAA, 2, 2), '0'); // Mes (con 0 a la izquierda removido si existe)
-		$aExtensionBIND = substr($fechaExtensionBINDDDMMAA, 4, 2);           // Año (siempre dos caracteres)			
-				
+		
+		// --- MODIFICACIÓN 3 ---
+		$mExtensionBIND_NUMERICO = (int)ltrim(substr($fechaExtensionBINDDDMMAA, 2, 2), '0'); // Mes numérico (ej: 10)
+		$mExtensionBIND = $mapaMeses[$mExtensionBIND_NUMERICO]; // Mes convertido (ej: A)
+		// --- FIN DE MODIFICACIÓN 3 ---
+		
+		$aExtensionBIND = substr($fechaExtensionBINDDDMMAA, 4, 2);           // Año (siempre dos caracteres)
+		// --- FIn de le logica de extension--
+
+		
 		/////////////////////////////////////////////////////////////////////////////////////////////////
 		// VENTAS
 		// Ruta al archivo de texto del BIND
 		if (esSabadoDomingoFeriadoDDMMAA($fechaurl) == 0 ){
-			$nombreArchivo = 'A065BOTON' . $fechaurl . '.' . $m . $d;
+			// --- MODIFICACIÓN 4.A ---
+			$nombreArchivo = 'A065BOTON' . $fechaurl . '.' . $m_EXTENSION . $d;
+			// Antes decía: $nombreArchivo = 'A065BOTON' . $fechaurl . '.' . $m . $d;
+			// --- FIN MODIFICACIÓN 4.A ---
 			$fechaLiquidacionDDMMAA = obtenerProximoDiaHabilDDMMAA($fechaurl);
 		}
 		else {  //Si se procesa transacciones de Sabado Domingo o Feriado BIND coloca la extensión de la fecha del día habil en que se procesa
@@ -1768,7 +1795,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		//DEVOLUCIONES
 		// Ruta al archivo de texto de DEVOLUCIONES del BIND
 		if (esSabadoDomingoFeriadoDDMMAA($fechaurl) == 0 ){
-			$nombreArchivo = 'A065DEVBOTON' . $a . (strlen($m) == 2 ? $m : '0' . $m) . $d . '.' . $m . $d;
+			$nombreArchivo = 'A065DEVBOTON' . $a . (strlen($m) == 2 ? $m : '0' . $m) . $d . '.' . $m_EXTENSION . $d;
 		}
 		else {
 			$nombreArchivo = 'A065DEVBOTON' . $a . (strlen($m) == 2 ? $m : '0' . $m) . $d . '.' . $mExtensionBIND . $dExtensionBIND;
