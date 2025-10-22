@@ -2,7 +2,9 @@
     "name": "nicoe/moura",
     "description": "Script para procesar archivos de transacciones.",
     "require": {
-        "phpoffice/phpspreadsheet": "^1.29"
+        "phpoffice/phpspreadsheet": "^1.29",
+        "vlucas/phpdotenv": "^5.6",
+        "guzzlehttp/guzzle": "^7.10"
     },
     "authors": [
         {
@@ -12,4 +14,3 @@
     ],
     "minimum-stability": "stable"
 }
-
