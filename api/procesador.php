@@ -2,7 +2,7 @@
 
 // Carga el autoloader de Composer para incluir las librerías necesarias.
 require 'vendor/autoload.php';
-require_once 'api/constants.php';
+require_once 'constants.php';
 
 // "Alias" para las clases que vamos a usar.
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -335,12 +335,54 @@ $diaStr = $fechaParaExtension->format('d'); // 'd' da el día con cero (01-31)
 $extensionCalculada = $mapaMeses[$mesNum] . $diaStr;
 echo "Extensión de archivo calculada: " . $extensionCalculada . "\n";
 
-// --- 3. PROCESAMIENTO DEL ARCHIVO EXCEL POR LOTES ---
-$archivoEntrada = 'input/reporte_transacciones_21-10-2025_15-08-42.xlsx';
-if (!file_exists($archivoEntrada)) {
-    die("Error: El archivo de entrada no se encontró en: $archivoEntrada\n");
+// --- 3. BÚSQUEDA DINÁMICA DEL ARCHIVO DE ENTRADA ---
+echo "--- 3. BÚSQUEDA DINÁMICA DEL ARCHIVO DE ENTRADA ---\n";
+
+// 3.1. Definir el directorio de entrada (basado en tu ejemplo)
+$directorioEntrada = 'archivos';
+
+// 3.2. Obtener componentes de la FechaProceso (que ya tenemos en $fechaProceso)
+$dd = $fechaProceso->format('d'); // Día (ej: 21)
+$mm = $fechaProceso->format('m'); // Mes (ej: 11)
+$yyyy = $fechaProceso->format('Y'); // Año (ej: 2025)
+
+// 3.3. Construir el patrón de búsqueda (Requisito 2 y 3)
+// Busca: archivos/reporte_transacciones_DD-MM-YYYY_*.xlsx
+$patronBusqueda = $directorioEntrada . "/reporte_transacciones_{$dd}-{$mm}-{$yyyy}_*.xlsx";
+
+echo "Buscando archivos que coincidan con el patrón: $patronBusqueda\n";
+
+// 3.4. Ejecutar la búsqueda
+$archivosEncontrados = glob($patronBusqueda);
+
+if ($archivosEncontrados === false) {
+    // Error en la función glob()
+    die("Error: Ocurrió un error al leer el directorio de entrada '$directorioEntrada'.\n");
 }
 
+$cantidadEncontrada = count($archivosEncontrados);
+$archivoEntrada = ''; // Inicializamos la variable
+
+// 3.5. Validar los resultados (Requisito 3)
+if ($cantidadEncontrada === 0) {
+    // No se encontró ningún archivo
+    die("Error: No se encontró ningún archivo de reporte para la fecha {$dd}-{$mm}-{$yyyy}. Patrón buscado: $patronBusqueda\n");
+
+} elseif ($cantidadEncontrada > 1) {
+    // Se encontraron múltiples archivos
+    echo "Error: Se encontró más de un archivo para la fecha {$dd}-{$mm}-{$yyyy}. Archivos encontrados:\n";
+    foreach ($archivosEncontrados as $archivo) {
+        echo " - $archivo\n";
+    }
+    die("Por favor, deje solo un archivo de reporte para la fecha a procesar y vuelva a intentarlo.\n");
+
+} else {
+    // ¡Éxito! Se encontró exactamente un archivo.
+    $archivoEntrada = $archivosEncontrados[0];
+    echo "Archivo de entrada seleccionado para procesar: $archivoEntrada\n";
+}
+
+// 3.6. PROCESAMIENTO DEL ARCHIVO EXCEL
 try {
     $spreadsheet = IOFactory::load($archivoEntrada);
     $hojaDeCalculo = $spreadsheet->getActiveSheet();
