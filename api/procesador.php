@@ -114,7 +114,7 @@ function transformarFila(array $datosOrigen): array
     $filaTransformada['TRANSACCION'] = str_pad($transaccion, 12, '0', STR_PAD_LEFT); // 37-48
 
     $filaTransformada['CODIGO_OPERACION'] = "A3"; // 49-50
-    $filaTransformada['RUBRO_TX'] = "CC"; // 51-52
+    $filaTransformada['RUBRO_TX'] = "00"; // 51-52
 
     $nroComercio = $datosOrigen['Info adicional comercio'] ?? '';
     $filaTransformada['N_COMERCIO'] = !empty(trim($nroComercio)) ? str_pad($nroComercio, 6, ' ', STR_PAD_RIGHT) : "000000"; // 53-58
