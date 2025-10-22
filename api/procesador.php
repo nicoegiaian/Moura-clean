@@ -1,7 +1,7 @@
 <?php
 
 // Carga el autoloader de Composer para incluir las librerías necesarias.
-require 'vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 require_once 'constants.php';
 
 // "Alias" para las clases que vamos a usar.
@@ -188,13 +188,13 @@ function transformarFila(array $datosOrigen): array
     $formaPago = '';
 
     if ($medioDePago === 'CREDIT') {
-        $formaPago = ($cuotas === 1) ? '80' : '30';
+        $formaPago = ($cuotas === 1) ? '80' : '10';
     } elseif ($medioDePago === 'DEBIT') {
         $formaPago = '90';
     } elseif ($medioDePago === 'QR') {
         $formaPago = '20';
     } elseif ($medioDePago === 'PREPAID') {
-        $formaPago = '70';
+        $formaPago = '60';
     }
     $filaTransformada['FORMA_PAGO'] = $formaPago; // 263-264
     
@@ -339,7 +339,7 @@ echo "Extensión de archivo calculada: " . $extensionCalculada . "\n";
 echo "--- 3. BÚSQUEDA DINÁMICA DEL ARCHIVO DE ENTRADA ---\n";
 
 // 3.1. Definir el directorio de entrada (basado en tu ejemplo)
-$directorioEntrada = 'archivos';
+$directorioArchivos = __DIR__ . '/archivos';
 
 // 3.2. Obtener componentes de la FechaProceso (que ya tenemos en $fechaProceso)
 $dd = $fechaProceso->format('d'); // Día (ej: 21)
@@ -348,7 +348,7 @@ $yyyy = $fechaProceso->format('Y'); // Año (ej: 2025)
 
 // 3.3. Construir el patrón de búsqueda (Requisito 2 y 3)
 // Busca: archivos/reporte_transacciones_DD-MM-YYYY_*.xlsx
-$patronBusqueda = $directorioEntrada . "/reporte_transacciones_{$dd}-{$mm}-{$yyyy}_*.xlsx";
+$patronBusqueda = $directorioArchivos . "/reporte_transacciones_{$dd}-{$mm}-{$yyyy}_*.xlsx";
 
 echo "Buscando archivos que coincidan con el patrón: $patronBusqueda\n";
 
@@ -448,8 +448,8 @@ try {
     // --- FIN Generacion de Archivo cuotas ---
     
     // --- 3.2 VERIFICAR/CREAR DIRECTORIO DE SALIDA --- // 
-    $directorioSalida = 'output';
-    if (!is_dir($directorioSalida)) {
+    $directorioSalida = $directorioArchivos;
+        if (!is_dir($directorioSalida)) {
         echo "Creando directorio de salida en: $directorioSalida\n";
         if (!mkdir($directorioSalida, 0777, true)) {
             die("Error: No se pudo crear el directorio de salida: $directorioSalida\n");
@@ -562,6 +562,30 @@ try {
             
             // Cerrar el archivo
             fclose($archivoSalida); 
+
+            // --- INICIO: BLOQUE PARA GENERAR A065DEVBOTON VACIO
+            echo "    -> Generando archivo A065DEVBOTON...\n";
+            
+            // Usamos la misma lógica de nombre base (ddmmyy) y extensión
+            $nombreArchivoBase_DEV = 'A065DEVBOTON' . $fechaProceso->format('dmy'); // dmy = ddmmaa
+            $rutaArchivoCompleta_DEV = $directorioSalida . '/' . $nombreArchivoBase_DEV . '.' . $extensionCalculada;
+
+            // Contenido del archivo
+            // $fechaProcesoStr ya contiene 'aaaammdd' del $argv[1]
+            $header_DEV = "HEADER" . $fechaProcesoStr; 
+            $trailer_DEV = "TRAILER00000";
+
+            $archivoSalida_DEV = fopen($rutaArchivoCompleta_DEV, 'w');
+            if (!$archivoSalida_DEV) {
+                echo "    -> ERROR: No se pudo abrir el archivo de salida $rutaArchivoCompleta_DEV. Omitiendo este archivo.\n";
+            } else {
+                fwrite($archivoSalida_DEV, $header_DEV . "\n");
+                fwrite($archivoSalida_DEV, $trailer_DEV . "\n");
+                fclose($archivoSalida_DEV);
+                echo "    -> Archivo $rutaArchivoCompleta_DEV generado con éxito.\n";
+            }
+            // --- FIN: NUEVO BLOQUE PARA A065DEVBOTON ---
+
         }
 
     } else {
