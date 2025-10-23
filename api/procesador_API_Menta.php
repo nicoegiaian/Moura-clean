@@ -20,7 +20,7 @@ if (!preg_match('/^\d{8}$/', $fechaProcesoStr)) {
     die();
 }
 
-echo "INFO: Procesando transacciones para la fecha: $fechaProcesoStr\n";
+//echo "INFO: Procesando transacciones para la fecha: $fechaProcesoStr\n";
 
 // Convertimos la fecha a los formatos 'start' y 'end' que pide la API
 try {
@@ -38,7 +38,7 @@ try {
                    ->setTimezone(new DateTimeZone('UTC'))
                    ->format('Y-m-d\TH:i:s\Z');
                      
-    echo "INFO: Rango de búsqueda: $fechaStart -> $fechaEnd\n";
+    //echo "INFO: Rango de búsqueda: $fechaStart -> $fechaEnd\n";
 
 } catch (Exception $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
@@ -61,9 +61,9 @@ use GuzzleHttp\Exception\GuzzleException;
 
 // --- INICIO DEL PROCESO ---
 
-echo "============================================\n";
-echo "== INICIANDO PROCESO DE TRANSACCIONES MENTA ==\n";
-echo "============================================\n\n";
+//echo "============================================\n";
+//echo "== INICIANDO PROCESO DE TRANSACCIONES MENTA ==\n";
+//echo "============================================\n\n";
 
 // Variable global para guardar el token
 $accessToken = null;
@@ -81,7 +81,7 @@ $transaccionesMapeadas = [];
 function fase1_autenticacion() {
     global $accessToken, $MENTA_USER, $MENTA_PASSWORD, $MENTA_API_URL;
 
-    echo "--- FASE 1: Autenticación ---\n";
+    //echo "--- FASE 1: Autenticación ---\n";
 
     // 1.1: Revisar si tenemos un token guardado (en caché)
     if (file_exists(TOKEN_CACHE_FILE)) {
@@ -89,16 +89,16 @@ function fase1_autenticacion() {
         
         // 1.2: Revisar si el token NO ha expirado (le damos 60s de margen)
         if (isset($cacheData['expires_at']) && $cacheData['expires_at'] > (time() + 60)) {
-            echo "INFO: Usando token válido desde caché.\n";
+            //echo "INFO: Usando token válido desde caché.\n";
             $accessToken = $cacheData['access_token'];
-            return; // Salimos de la función, ya tenemos token
+            return; 
         }
         
-        echo "INFO: El token en caché ha expirado o es inválido.\n";
+        //echo "INFO: El token en caché ha expirado o es inválido.\n";
     }
 
     // 1.3: Si no hay token o expiró, pedimos uno nuevo
-    echo "ACCION: Solicitando nuevo token de acceso a Menta...\n";
+    //echo "ACCION: Solicitando nuevo token de acceso a Menta...\n";
     
     $client = new Client([
         'base_uri' => $MENTA_API_URL,
@@ -117,11 +117,6 @@ function fase1_autenticacion() {
         if ($response->getStatusCode() === 200) {
             $data = json_decode($response->getBody(), true);
             
-            // --- LÍNEA DE DEBUG ---
-            echo "DEBUG: Respuesta completa de la API:\n";
-            var_dump($data);
-            echo "\n";
-            // --- FIN DEBUG ---
 
             $accessToken = $data['token']['access_token']; // El token
             $expiresIn = $data['token']['expires_in'];   // Segundos de vida (ej: 43200)
@@ -135,8 +130,8 @@ function fase1_autenticacion() {
                 'expires_at'   => $expiresAt
             ]));
             
-            echo "EXITO: Nuevo token obtenido y guardado en caché.\n";
-            echo "       (Expira en $expiresIn segundos)\n";
+            //echo "EXITO: Nuevo token obtenido y guardado en caché.\n";
+            //echo "       (Expira en $expiresIn segundos)\n";
 
         } else {
             echo "ERROR: La API devolvió un estado no exitoso: " . $response->getStatusCode() . "\n";
@@ -144,8 +139,8 @@ function fase1_autenticacion() {
 
     } catch (GuzzleException $e) {
         // Error de conexión o error de la API (4xx, 5xx)
-        echo "ERROR CRITICO: No se pudo obtener el token.\n";
-        echo "Mensaje: " . $e->getMessage() . "\n";
+        //echo "ERROR CRITICO: No se pudo obtener el token.\n";
+        //echo "Mensaje: " . $e->getMessage() . "\n";
         // Si el error es 400/401, probablemente tus credenciales están mal
         if ($e->hasResponse()) {
             echo "Respuesta de la API: " . $e->getResponse()->getBody()->getContents() . "\n";
@@ -170,7 +165,7 @@ function fase2_peticion_transacciones() {
         return;
     }
     
-    echo "\n--- FASE 2: Petición de Transacciones ---\n";
+    //echo "\n--- FASE 2: Petición de Transacciones ---\n";
 
     // Creamos un nuevo cliente Guzzle para esta fase
     $client = new Client([
@@ -182,7 +177,7 @@ function fase2_peticion_transacciones() {
     $paginasTotales = 1; // Valor inicial para que el bucle comience
 
     do {
-        echo "INFO: Solicitando página $paginaActual...\n";
+        //echo "INFO: Solicitando página $paginaActual...\n";
 
         try {
             $response = $client->get('v2/transaction-reports', [ // Endpoint SIN / al inicio
@@ -210,8 +205,8 @@ function fase2_peticion_transacciones() {
                 $paginasTotales = $data['total_pages'];
                 $paginaActual = $data['pageable']['page_number'];
                 
-                echo "EXITO: Se obtuvieron $nuevasObtenidas transacciones de la página $paginaActual.\n";
-                echo "       (Página " . ($paginaActual + 1) . " de $paginasTotales. Total acumulado: " . count($transaccionesObtenidas) . ")\n";
+                //echo "EXITO: Se obtuvieron $nuevasObtenidas transacciones de la página $paginaActual.\n";
+                //echo "       (Página " . ($paginaActual + 1) . " de $paginasTotales. Total acumulado: " . count($transaccionesObtenidas) . ")\n";
 
                 // Preparamos la siguiente iteración
                 $paginaActual++;
@@ -234,7 +229,7 @@ function fase2_peticion_transacciones() {
 
     } while ($paginaActual < $paginasTotales); // Continuamos mientras haya páginas por pedir
 
-    echo "\n--- FIN FASE 2: Se obtuvieron un total de " . count($transaccionesObtenidas) . " transacciones. ---\n";
+    //echo "\n--- FIN FASE 2: Se obtuvieron un total de " . count($transaccionesObtenidas) . " transacciones. ---\n";
 }
 
 /**
@@ -324,13 +319,54 @@ class Transaccion {
 function fase3_mapeo_clases() {
     global $transaccionesObtenidas, $transaccionesMapeadas;
     
-    echo "\n--- FASE 3: Mapeo a Clases ---\n";
+    //echo "\n--- FASE 3: Mapeo a Clases ---\n";
     
     foreach ($transaccionesObtenidas as $tx_raw) {
         $transaccionesMapeadas[] = Transaccion::fromArray($tx_raw);
     }
     
-    echo "EXITO: Se mapearon " . count($transaccionesMapeadas) . " objetos Transaccion.\n";
+    //echo "EXITO: Se mapearon " . count($transaccionesMapeadas) . " objetos Transaccion.\n";
+
+    /* =================================================================
+    // --- INICIO: BLOQUE DE DEBUG A CSV ---
+    // =================================================================
+    
+    // Verificamos si hay algo que escribir
+    if (empty($transaccionesMapeadas)) {
+        echo "DEBUG: No hay transacciones mapeadas para generar el CSV.\n";
+        return; // Salimos de la función
+    }
+
+    //echo "DEBUG: Generando archivo 'debug_transacciones.csv'...\n";
+    
+    // 1. Abrimos el archivo
+    $archivoDebug = fopen('debug_transacciones.csv', 'w');
+    if (!$archivoDebug) {
+        echo "DEBUG: ERROR! No se pudo crear 'debug_transacciones.csv'.\n";
+        return;
+    }
+
+    // 2. Escribimos los Headers (los nombres de las propiedades de la clase)
+    // Tomamos la primera transacción como modelo para sacar los nombres
+    $primeraTx = $transaccionesMapeadas[0];
+    $headers = array_keys(get_object_vars($primeraTx));
+    fputcsv($archivoDebug, $headers);
+
+    // 3. Escribimos todas las filas de datos
+    foreach ($transaccionesMapeadas as $tx) {
+        // Convertimos el objeto en un array y lo escribimos en el CSV
+        fputcsv($archivoDebug, get_object_vars($tx));
+    }
+
+    // 4. Cerramos el archivo
+    fclose($archivoDebug);
+    
+    //echo "DEBUG: Archivo 'debug_transacciones.csv' generado con éxito.\n";
+    
+    // =================================================================
+    // --- FIN: BLOQUE DE DEBUG A CSV ---
+    // =================================================================
+    */
 }
 
 
@@ -514,10 +550,10 @@ function ensamblarLinea(array $filaProcesada): string
 function fase5_generar_archivos() {
     global $fechaProceso, $transaccionesMapeadas, $fechaProcesoStr; // Usamos las variables globales
 
-    echo "\n--- FASE 5: Generación de Archivos de Salida ---\n";
+    //echo "\n--- FASE 5: Generación de Archivos de Salida ---\n";
 
     // --- 1. CÁLCULO DE EXTENSIÓN DE ARCHIVO (Lógica de procesador.php) ---
-    echo "Cálculo de extensión de archivo...\n";
+    //echo "Cálculo de extensión de archivo...\n";
     $mapaMeses = [
         1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6',
         7 => '7', 8 => '8', 9 => '9', 10 => 'A', 11 => 'B', 12 => 'C'
@@ -541,8 +577,8 @@ function fase5_generar_archivos() {
     $fechaParaExtension = clone $fechaProceso;
 
     if ($esFinDeSemana || $esFeriado) {
-        if ($esFinDeSemana) echo "FechaProceso es fin de semana. Calculando siguiente día hábil...\n";
-        else echo "FechaProceso es feriado. Calculando siguiente día hábil...\n";
+        //if ($esFinDeSemana) echo "FechaProceso es fin de semana. Calculando siguiente día hábil...\n";
+        //else echo "FechaProceso es feriado. Calculando siguiente día hábil...\n";
         
         while (true) {
             $fechaParaExtension->modify('+1 day');
@@ -565,14 +601,14 @@ function fase5_generar_archivos() {
          echo "FechaProceso es día hábil. La extensión se basará en esta fecha.\n";
     }
 
-    echo "Fecha para Extensión calculada: " . $fechaParaExtension->format('d-m-Y') . "\n";
+    //echo "Fecha para Extensión calculada: " . $fechaParaExtension->format('d-m-Y') . "\n";
     $mesNum = (int)$fechaParaExtension->format('n');
     $diaStr = $fechaParaExtension->format('d');
     $extensionCalculada = $mapaMeses[$mesNum] . $diaStr;
-    echo "Extensión de archivo calculada: " . $extensionCalculada . "\n";
+    //echo "Extensión de archivo calculada: " . $extensionCalculada . "\n";
 
     // --- 2. GENERACIÓN DE 'archivocuotas.xlsx' ---
-    echo "Generando archivo 'archivocuotas.xlsx'...\n";
+    //echo "Generando archivo 'archivocuotas.xlsx'...\n";
     
     $spreadsheetCuotas = new Spreadsheet();
     $sheetCuotas = $spreadsheetCuotas->getActiveSheet();
@@ -599,7 +635,7 @@ function fase5_generar_archivos() {
     $writer = new Xlsx($spreadsheetCuotas);
     $rutaArchivoCuotas = 'archivocuotas.xlsx'; 
     $writer->save($rutaArchivoCuotas);
-    echo "Archivo 'archivocuotas.xlsx' generado con $registrosCuotas registros.\n";
+    //echo "Archivo 'archivocuotas.xlsx' generado con $registrosCuotas registros.\n";
 
     // --- 3. GENERACIÓN DE ARCHIVO DE LOTE (A065BOTON...) ---
 
@@ -649,8 +685,8 @@ function fase5_generar_archivos() {
         $nombreArchivoBase = 'A065BOTON' . $fechaProceso->format('dmy');
         $rutaArchivoCompleta = $directorioSalida . '/' . $nombreArchivoBase . '.' . $extensionCalculada;
 
-        echo "\n--- Lote #1 para Fecha Proceso " . $fechaProceso->format('d-m-Y') . " ---\n";
-        echo "    -> Generando archivo: " . $rutaArchivoCompleta . "\n";
+        //echo "\n--- Lote #1 para Fecha Proceso " . $fechaProceso->format('d-m-Y') . " ---\n";
+        //echo "    -> Generando archivo: " . $rutaArchivoCompleta . "\n";
         
         $archivoSalida = fopen($rutaArchivoCompleta, 'w');
         if (!$archivoSalida) {
@@ -679,9 +715,9 @@ function fase5_generar_archivos() {
         fwrite($archivoSalida, $trailer . "\n");
         fclose($archivoSalida); 
         
-        echo "    -> Archivo generado con $totalRegistrosLote registros.\n";
+        //echo "    -> Archivo generado con $totalRegistrosLote registros.\n";
           // --- INICIO: BLOQUE PARA GENERAR A065DEVBOTON VACIO
-          echo "    -> Generando archivo A065DEVBOTON...\n";
+          //echo "    -> Generando archivo A065DEVBOTON...\n";
             
           // Usamos la misma lógica de nombre base (ddmmyy) y extensión
           $nombreArchivoBase_DEV = 'A065DEVBOTON' . $fechaProceso->format('dmy'); // dmy = ddmmaa
@@ -699,7 +735,7 @@ function fase5_generar_archivos() {
               fwrite($archivoSalida_DEV, $header_DEV . "\n");
               fwrite($archivoSalida_DEV, $trailer_DEV . "\n");
               fclose($archivoSalida_DEV);
-              echo "    -> Archivo $rutaArchivoCompleta_DEV generado con éxito.\n";
+              //echo "    -> Archivo $rutaArchivoCompleta_DEV generado con éxito.\n";
           }
           // --- FIN: NUEVO BLOQUE PARA A065DEVBOTON ---
     } else {
@@ -724,9 +760,9 @@ try {
         echo "\n--- El mapeo de transacciones falló. No se generarán archivos. ---\n";
     }
     
-    echo "\n============================================\n";
-    echo "== PROCESO COMPLETADO EXITOSAMENTE ==\n";
-    echo "============================================\n";
+    //echo "\n============================================\n";
+    //echo "== PROCESO COMPLETADO EXITOSAMENTE ==\n";
+    //echo "============================================\n";
 
 } catch (Exception $e) {
     echo "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
