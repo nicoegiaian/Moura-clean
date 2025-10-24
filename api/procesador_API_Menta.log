@@ -1,0 +1,39 @@
+INFO: Procesando transacciones para la fecha: 20251017
+INFO: Rango de búsqueda: 2025-10-17T03:00:00Z -> 2025-10-17T23:59:59Z
+============================================
+== INICIANDO PROCESO DE TRANSACCIONES MENTA ==
+============================================
+
+--- FASE 1: Autenticación ---
+INFO: El token en caché ha expirado o es inválido.
+ACCION: Solicitando nuevo token de acceso a Menta...
+EXITO: Nuevo token obtenido y guardado en caché.
+       (Expira en 43200 segundos)
+
+--- FASE 2: Petición de Transacciones ---
+INFO: Solicitando página 0...
+EXITO: Se obtuvieron 5 transacciones de la página 0.
+       (Página 1 de 1. Total acumulado: 5)
+
+--- FIN FASE 2: Se obtuvieron un total de 5 transacciones. ---
+
+--- FASE 3: Mapeo a Clases ---
+EXITO: Se mapearon 5 objetos Transaccion.
+
+--- FASE 5: Generación de Archivos de Salida ---
+Cálculo de extensión de archivo...
+FechaProceso es día hábil. La extensión se basará en esta fecha.
+Fecha para Extensión calculada: 17-10-2025
+Extensión de archivo calculada: A17
+Generando archivo 'archivocuotas.xlsx'...
+Archivo 'archivocuotas.xlsx' generado con 4 registros.
+
+--- Lote #1 para Fecha Proceso 17-10-2025 ---
+    -> Generando archivo: archivos/A065BOTON171025.A17
+    -> Archivo generado con 4 registros.
+    -> Generando archivo A065DEVBOTON...
+    -> Archivo archivos/A065DEVBOTON171025.A17 generado con éxito.
+
+============================================
+== PROCESO COMPLETADO EXITOSAMENTE ==
+============================================

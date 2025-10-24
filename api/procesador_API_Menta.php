@@ -10,8 +10,11 @@
  * y lo escribirá en un archivo de log.
  */
 function guardar_log_al_finalizar() {
+    // Hacemos visible la variable global de tiempo de inicio
+    global $GLOBAL_START_TIME;
+
     // 1. Define el nombre de tu archivo de log
-    $archivoLog = __DIR__ . '/procesador_API_Menta.log';
+    $archivoLog = __DIR__ . '/procesador.log';
 
     // 2. Obtiene todo el contenido del búfer
     $contenidoLog = ob_get_contents();
@@ -19,8 +22,22 @@ function guardar_log_al_finalizar() {
     // 3. Limpia el búfer (y detiene el buffering)
     ob_end_clean();
 
-    // 4. Escribe el contenido en el archivo, sobrescribiéndolo
-    file_put_contents($archivoLog, $contenidoLog);
+    // --- INICIO: CÁLCULO DE DURACIÓN ---
+    $endTime = microtime(true); // Tiempo exacto de finalización
+    
+    // (?? $endTime) es un seguro por si $GLOBAL_START_TIME no estuviera definida
+    $durationSeconds = $endTime - ($GLOBAL_START_TIME ?? $endTime); 
+    $durationMinutes = round($durationSeconds / 60, 2); // Convertimos a minutos
+    
+    // 4. Creamos el pie de página del log
+    $footerLog = "\n\n============================================\n";
+    $footerLog .= "== PROCESO FINALIZADO: " . (new DateTime())->format('Y-m-d H:i:s') . " ==\n";
+    $footerLog .= "== DURACIÓN TOTAL: $durationMinutes minutos ==\n";
+    $footerLog .= "============================================\n";
+    // --- FIN: CÁLCULO DE DURACIÓN ---
+
+    // 5. Escribe el contenido + el pie de página en el archivo
+    file_put_contents($archivoLog, $contenidoLog . $footerLog);
 }
 
 // Cargar las dependencias de Composer (Guzzle, DotEnv)
@@ -34,6 +51,14 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 // --- Activacion de Log
 ob_start(); // Inicia el búfer: PHP deja de imprimir en consola
 register_shutdown_function('guardar_log_al_finalizar'); // Llama a nuestra función al final
+
+// Capturamos el tiempo exacto de inicio en una variable global
+$GLOBAL_START_TIME = microtime(true);
+// Escribimos el banner de inicio en el log
+echo "============================================\n";
+echo "== PROCESO INICIADO: " . (new DateTime())->format('Y-m-d H:i:s') . " ==\n";
+echo "============================================\n\n";
+
 
 // Cargar las variables de entorno (desde el archivo .env)
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__); 
@@ -51,21 +76,27 @@ echo "INFO: Procesando transacciones para la fecha: $fechaProcesoStr\n";
 
 // Convertimos la fecha a los formatos 'start' y 'end' que pide la API
 try {
-    // Creamos un objeto DateTime desde el string 'aaaammdd'
-    $dt = DateTime::createFromFormat('Ymd', $fechaProcesoStr);
+    // --- INICIO DE LA CORRECCIÓN ---
+    // 1. Definimos la zona horaria UTC
+    $utc = new DateTimeZone('UTC');
+    
+    // 2. Creamos el objeto DateTime USANDO esa zona horaria
+    $dt = DateTime::createFromFormat('Ymd', $fechaProcesoStr, $utc);
+    // --- FIN DE LA CORRECCIÓN ---
+
     if ($dt === false) { throw new Exception("Formato de fecha inválido."); }
 
-    // Creamos el string 'start': 2025-10-22T00:00:00Z (en UTC 'Z')
+    // Ahora $dt ya está en UTC, no necesitamos ->setTimezone()
+    
+    // Creamos el string 'start'
     $fechaStart = $dt->setTime(0, 0, 0)
-                     ->setTimezone(new DateTimeZone('UTC'))
                      ->format('Y-m-d\TH:i:s\Z');
 
-    // Creamos el string 'end': 2025-10-22T23:59:59Z (en UTC 'Z')
+    // Creamos el string 'end'
     $fechaEnd = $dt->setTime(23, 59, 59)
-                   ->setTimezone(new DateTimeZone('UTC'))
                    ->format('Y-m-d\TH:i:s\Z');
                      
-    echo "INFO: Rango de búsqueda: $fechaStart -> $fechaEnd\n";
+    echo "INFO: Rango de búsqueda: $fechaStart -> $fechaEnd\n"; // Descomenté esto para que lo veas
 
 } catch (Exception $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
@@ -788,16 +819,14 @@ try {
     } else {
         echo "\n--- El mapeo de transacciones falló. No se generarán archivos. ---\n";
     }
-    
-    echo "\n============================================\n";
-    echo "== PROCESO COMPLETADO EXITOSAMENTE ==\n";
-    echo "============================================\n";
+
 
 } catch (Exception $e) {
-    echo "\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-    echo "== ERROR INESPERADO DURANTE LA EJECUCION ==\n";
+    echo "\n\n--- ERROR CRÍTICO ---\n";
     echo "Mensaje: " . $e->getMessage() . "\n";
-    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+    echo "Línea: " . $e->getLine() . "\n";
+    echo "Archivo: " . $e->getFile() . "\n";
+    echo "-----------------------\n\n";
 }
 
 ?>
