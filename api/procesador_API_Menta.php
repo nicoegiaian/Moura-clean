@@ -272,6 +272,7 @@ class Transaccion {
     
     // --- CAMPOS NUEVOS (requeridos por transformarFila) ---
     public int $operation_number; // Para el campo 'TRANSACCION'
+    public int $ref_operation_number; //solo con datos para ANNULMENTS o REFUNDS donde coincidra con el operation_number de un PAYMENT / APPROVED
     public ?string $merchant_additional_info; // Para el campo 'N_COMERCIO'
     
     
@@ -310,6 +311,7 @@ class Transaccion {
         
         // --- MAPEANDO LOS CAMPOS NUEVOS ---
         $tx->operation_number = (int) ($data['operation_number'] ?? 0);
+        $tx->ref_operation_number = (int) ($data['ref_operation_number'] ?? 0);
         $tx->merchant_additional_info = $data['merchant_additional_info'] ?? null;
         
         return $tx;
