@@ -1,0 +1,30 @@
+============================================
+== PROCESO INICIADO: 2025-10-24 09:39:01 ==
+============================================
+
+INFO: Procesando transacciones para la fecha: 20251018
+INFO: Rango de búsqueda: 2025-10-18T00:00:00Z -> 2025-10-18T23:59:59Z
+============================================
+== INICIANDO PROCESO DE TRANSACCIONES MENTA ==
+============================================
+
+--- FASE 1: Autenticación ---
+INFO: Usando token válido desde caché.
+
+--- FASE 2: Petición de Transacciones ---
+INFO: Solicitando página 0...
+EXITO: Se obtuvieron 0 transacciones de la página 0.
+       (Página 1 de 0. Total acumulado: 0)
+
+--- FIN FASE 2: Se obtuvieron un total de 0 transacciones. ---
+
+--- FASE 3: Mapeo a Clases ---
+EXITO: Se mapearon 0 objetos Transaccion.
+
+--- No se obtuvieron transacciones de la API. No se generarán archivos. ---
+
+
+============================================
+== PROCESO FINALIZADO: 2025-10-24 09:39:02 ==
+== DURACIÓN TOTAL: 0.01 minutos ==
+============================================

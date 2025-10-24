@@ -14,7 +14,7 @@ function guardar_log_al_finalizar() {
     global $GLOBAL_START_TIME;
 
     // 1. Define el nombre de tu archivo de log
-    $archivoLog = __DIR__ . '/procesador.log';
+    $archivoLog = __DIR__ . '/procesador_API_Menta.log';
 
     // 2. Obtiene todo el contenido del búfer
     $contenidoLog = ob_get_contents();
