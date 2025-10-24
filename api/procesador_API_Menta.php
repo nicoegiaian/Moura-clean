@@ -718,6 +718,7 @@ function fase5_generar_archivos() {
     $lineasDelLote = [];
     $totalRegistrosLote = 0;
     $totalImporteLote = 0.0;
+    $totalRegistrosDescartados = 0;
     
     // 3.3. BUCLE DE TRANSFORMACIÓN (Itera sobre los objetos $transaccionesMapeadas)
     foreach ($transaccionesMapeadas as $tx) {
@@ -736,6 +737,9 @@ function fase5_generar_archivos() {
             // 3.3.4. Acumular para el TRAILER
             $totalRegistrosLote++;
             $totalImporteLote += $filaProcesada['__IMPORTE_RAW__'];
+        }
+        else {
+            $totalRegistrosDescartados++; // Contamos el registro descartado
         }
     }
 
@@ -775,8 +779,12 @@ function fase5_generar_archivos() {
         fwrite($archivoSalida, $trailer . "\n");
         fclose($archivoSalida); 
         
-        echo "    -> Archivo generado con $totalRegistrosLote registros.\n";
-          // --- INICIO: BLOQUE PARA GENERAR A065DEVBOTON VACIO
+        echo "    -> Archivo generado con $totalRegistrosLote registros de transacciones en status APPROVED.\n";
+        
+        if ($totalRegistrosDescartados > 0) {
+            echo "    -> Se descartaron $totalRegistrosDescartados registros por transacciones con estados FAILED, REVERSED o REJECTED.\n";
+        }
+        // --- INICIO: BLOQUE PARA GENERAR A065DEVBOTON VACIO
           echo "    -> Generando archivo A065DEVBOTON...\n";
             
           // Usamos la misma lógica de nombre base (ddmmyy) y extensión
@@ -797,10 +805,13 @@ function fase5_generar_archivos() {
               fclose($archivoSalida_DEV);
               echo "    -> Archivo $rutaArchivoCompleta_DEV generado con éxito.\n";
           }
-          // --- FIN: NUEVO BLOQUE PARA A065DEVBOTON ---
-    } else {
-         echo "\n--- No se encontraron registros 'APPROVED' para la Fecha de Proceso: " . $fechaProceso->format('d-m-Y') . " ---\n";
-    }
+        }  // --- FIN: NUEVO BLOQUE PARA A065DEVBOTON ---
+        else {
+        echo "\n--- No se encontraron registros 'APPROVED' para la Fecha de Proceso: " . $fechaProceso->format('d-m-Y') . " ---\n";
+        if ($totalRegistrosDescartados > 0) {
+            echo "    -> Se descartaron $totalRegistrosDescartados registros por transacciones con estados FAILED, REVERSED o REJECTED.\n";
+        }
+        }
 }
 
 
