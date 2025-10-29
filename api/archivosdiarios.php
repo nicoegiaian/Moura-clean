@@ -92,8 +92,11 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$datos['id_tx_procesador'] = substr($registro, 294, 30);          // 295-324
 		$datos['barra_cupon_de_pago'] = substr($registro, 324, 150);      // 325-474
 		$datos['id_gateway'] = substr($registro, 474, 30);                // 475-504
-		$datos['relleno13'] = substr($registro, 504, 30);                 // 505-534
-		$datos['relleno14'] = substr($registro, 534, 60);                 // 535-594
+		$datos['tax_aranceltarjeta'] = substr($registro, 504, 11);			// 505-515: ACQUIRER_TO_CUSTOMER_COMMISSION
+		$datos['tax_aranceltarjeta_vat'] = substr($registro, 515, 11);		// 516-526: ACQUIRER_TO_CUSTOMER_COMMISSION_VAT_TAX
+		$datos['tax_financial_cost'] = substr($registro, 526, 11);			// 527-537: FINANCIAL_COST
+		$datos['tax_financial_cost_vat'] = substr($registro, 537, 11);  	// 538-548: FINANCIAL_COST_VAT_TAX
+		$datos['relleno_549_594'] = substr($registro, 548, 46);				// 549-594: Relleno de espacios
 		$datos['id_campana'] = substr($registro, 594, 8);                 // 595-602
 		$datos['relleno15'] = substr($registro, 602, 3);                 // 603-605
 		$datos['bin_de_la_tarjeta'] = substr($registro, 605, 6);          // 606-611
@@ -887,8 +890,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 	}
 	
-	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas ){
-		
+	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo ){
+
 		$porcentajes = obtenerPorcentajesDeducciones($dbConnection, $fecha_liquidacion);		
 		
 		
@@ -941,18 +944,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			$descuentoCuotas = 0;
 		}
 		
-		if($forma_de_pago == METODO_PAGO_BIND_CREDITO_CUOTAS || $forma_de_pago == METODO_PAGO_BIND_CREDITO || $forma_de_pago == METODO_PAGO_BIND_DEBIN){
-			$arancelTarjeta = $importeBruto * $porcentajes[ID_ARANCEL_TARJETA_CREDITO_VISA] / 100  ;
-		}
-		elseif($forma_de_pago == METODO_PAGO_BIND_DEBITO) {
-			$arancelTarjeta = $importeBruto * $porcentajes[ID_ARANCEL_TARJETA_DEBITO] / 100  ;
-		}
-		elseif($forma_de_pago == METODO_PAGO_BIND_QR) {
-			$arancelTarjeta = $importeBruto * $porcentajes[ID_ARANCEL_QR] / 100  ;
-		}
-		else{
-			$arancelTarjeta = 0;
-		}
+		$arancelTarjeta = $arancelTarjetaDesdeArchivo;
 		
 		if($forma_de_pago == METODO_PAGO_BIND_CREDITO_CUOTAS){
 			       
@@ -1023,8 +1015,9 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			$importeBruto = recalcularImporteBruto($dbConnection, $importeBruto, $fechaLiquidacion, ltrim($datosBIND['cantidad_de_cuotas'],'0'));			
 		}
 		
-		
-		$importeNeto = calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fechaLiquidacion, $datosBIND['forma_pago'], ltrim($datosBIND['cantidad_de_cuotas'],'0') );			
+		$arancelTarjetaNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta']);
+		$importeNeto = calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fechaLiquidacion, $datosBIND['forma_pago'], ltrim($datosBIND['cantidad_de_cuotas'],'0'), $arancelTarjetaNum );
+	
 		
 		$importeNetoMoura = $importeNeto * (obtenerPorcentajeMoura($dbConnection, $datosBIND['numero_de_comercio'],$fechaLiquidacion) / 100 );
 		$datosMoura['importe'] = convertirImporteNumericoAFormatoMoura($importeNetoMoura);
@@ -1540,18 +1533,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			$costoAcreditacion = $importeBruto * $porcentajes[ID_COSTO_ACREDITACION_QR] / 100  ;
 		}
 		
-		if($datosBIND['forma_pago'] == METODO_PAGO_BIND_CREDITO_CUOTAS || $datosBIND['forma_pago'] == METODO_PAGO_BIND_CREDITO || $datosBIND['forma_pago'] == METODO_PAGO_BIND_DEBIN){
-			$arancelTarjeta = $importeBruto * ($porcentajes[ID_ARANCEL_TARJETA_CREDITO_VISA]) / 100 ;
-		}
-		elseif($datosBIND['forma_pago'] == METODO_PAGO_BIND_DEBITO) {
-			$arancelTarjeta = $importeBruto * ($porcentajes[ID_ARANCEL_TARJETA_DEBITO]) / 100  ;
-		}
-		elseif($datosBIND['forma_pago'] == METODO_PAGO_BIND_QR) {
-			$arancelTarjeta = $importeBruto * $porcentajes[ID_ARANCEL_QR] / 100  ;
-		}
-		else{
-			$aranceltarjeta = 0;
-		}
+		$arancelTarjeta = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta']);
 		
 		if($datosBIND['forma_pago'] == METODO_PAGO_BIND_CREDITO_CUOTAS){
 			       

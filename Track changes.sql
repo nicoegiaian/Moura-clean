@@ -77,3 +77,13 @@ INSERT INTO `porcentajes` (`idporcentaje`, `nombre`, `fecha`, `porcentaje`, `por
     *CALL CON DIEGO
         Moura le dice a los puntos de venta, el costo de bateria es 100k pero si lo van a pagar en cuotas es 115000 (15%) y en 6 cuotas es 124000 (24%.)
         este porcentaje no viene de menta. 
+
+6. TOTAL NETO
+
+    Venta + Beneficio - todo el resto
+
+
+7, Cuando la venta es en tres cuotas le estaba descontando el impuesto financiero ( ID 20 )
+    importebrutooriginal - 124600
+    gross_amount de Menta , 
+    archivosdiarios no debe sumar el impuesto financiero para llegar a importecheque.
