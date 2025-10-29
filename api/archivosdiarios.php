@@ -890,7 +890,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 	}
 	
-	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo ){
+	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo, $ivaArancelTarjetaDesdeArchivo ){
 
 		$porcentajes = obtenerPorcentajesDeducciones($dbConnection, $fecha_liquidacion);		
 		
@@ -959,9 +959,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			$beneficioCredMoura = 0;
 		}
 
-		$montoiva = ($comision + $arancelTarjeta + $costoAcreditacion) * IVA ; // 25/06/2025 $descuentoCuotas lleva IVA = 0;
-		//Para descuento cuotas ese % de descuento ya incluye IVA por lo cual no lo resto del bruto como iva aparte
-		
+		$montoiva_comision_y_costo = ($comision + $costoAcreditacion) * IVA ;
+		$montoiva = $montoiva_comision_y_costo + $ivaArancelTarjetaDesdeArchivo; // 25/06/2025 $descuentoCuotas lleva IVA = 0;
+
+
 		$sirtac = $importeBruto * PORCENTAJE_SIRTAC / 100;
 		
 		$otrosImpuestos = $importeBruto * $porcentajes[ID_OTROS_IMPUESTOS] / 100  ;
@@ -1016,8 +1017,9 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 		
 		$arancelTarjetaNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta']);
-		$importeNeto = calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fechaLiquidacion, $datosBIND['forma_pago'], ltrim($datosBIND['cantidad_de_cuotas'],'0'), $arancelTarjetaNum );
-	
+		$ivaArancelTarjetaNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta_vat']);
+		
+		$importeNeto = calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fechaLiquidacion, $datosBIND['forma_pago'], ltrim($datosBIND['cantidad_de_cuotas'],'0'), $arancelTarjetaNum, $ivaArancelTarjetaNum );
 		
 		$importeNetoMoura = $importeNeto * (obtenerPorcentajeMoura($dbConnection, $datosBIND['numero_de_comercio'],$fechaLiquidacion) / 100 );
 		$datosMoura['importe'] = convertirImporteNumericoAFormatoMoura($importeNetoMoura);
@@ -1557,6 +1559,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		//Se utiliza el porcentaje de ahorro con el ID correspondiente
 		$credMoura = $importeBruto * $porcentajeAhorroSplit / 100;
 		
+		$ivaArancelTarjeta = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta_vat']);
 		
 		// Asignamos los valores a los parámetros
 		$stmt->bindValue(':nrotransaccion', intval($datosBIND['transaccion']));
@@ -1571,7 +1574,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$stmt->bindValue(':costoacreditacion', $costoAcreditacion);
 		$stmt->bindValue(':ivacostoacreditacion', $costoAcreditacion * IVA);
 		$stmt->bindValue(':aranceltarjeta', $arancelTarjeta);
-		$stmt->bindValue(':ivaaranceltarjeta', $arancelTarjeta * IVA);
+		$stmt->bindValue(':ivaaranceltarjeta', $ivaArancelTarjeta);
 		$stmt->bindValue(':credmoura', $credMoura);
 		$stmt->bindValue(':sirtac', $importeBruto * PORCENTAJE_SIRTAC / 100); 
 		$stmt->bindValue(':otrosimpuestos', $importeBruto * $porcentajes[ID_OTROS_IMPUESTOS] / 100);		
