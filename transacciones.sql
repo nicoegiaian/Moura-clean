@@ -1,0 +1,44 @@
+-- phpMyAdmin SQL Dump
+-- version 5.2.2
+-- https://www.phpmyadmin.net/
+--
+-- Servidor: 127.0.0.1
+-- Tiempo de generación: 27-10-2025 a las 21:10:26
+-- Versión del servidor: 11.8.3-MariaDB-log
+-- Versión de PHP: 7.2.34
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Base de datos: `u156146850_moura_test`
+--
+
+--
+-- Volcado de datos para la tabla `transacciones`
+--
+
+INSERT INTO `transacciones` (`nrotransaccion`, `idpdv`, `sucursal`, `importe`, `metodopago`, `estadocheque`, `nrocomprobante`, `estadocobranza`, `canal`, `dendepositante`, `refdepositante`, `cuitdepositante`, `primervencimiento`, `importeprimervenc`, `segundovencimiento`, `importesegundovenc`, `motivorechazo`, `nrocheque`, `fecha`, `importecheque`, `importeaplicado`, `fechapago`, `fechapagobind`, `nrocobranza`, `tipotransaccion`, `procesada`, `completada`, `marca`, `idliquidacion`) VALUES
+(63582208, 16, 32, 84295.29, 'CR', '30-70', '000000000063582208', 'CREDMOURA            ', 1, 'INTERBAT SRL                   ', '10185           ', 30707158952, NULL, 126180.60, NULL, NULL, NULL, '00000063582208', '2025-10-22 12:26:22', 128990.00, NULL, NULL, '2025-11-03 12:26:22', '000000000063582208', 'CREDMOURA ', 1, 0, '', 0),
+(647552387, 16, 32, 169250.61, 'CR', '30-70', '000000000647552387', 'CREDMOURA            ', 1, 'INTERBAT SRL                   ', '10185           ', 30707158952, NULL, 254644.15, NULL, NULL, NULL, '00000647552387', '2025-10-23 11:19:05', 258990.00, NULL, NULL, '2025-11-04 11:19:05', '000000000647552387', 'CREDMOURA ', 1, 0, '', 0),
+(271084842, 16, 32, 75865.76, 'CR', '30-70', '000000000271084842', 'CREDMOURA            ', 1, 'INTERBAT SRL                   ', '10185           ', 30707158952, NULL, 114143.00, NULL, NULL, NULL, '00000271084842', '2025-10-23 15:03:53', 116091.00, NULL, NULL, '2025-11-04 15:03:53', '000000000271084842', 'CREDMOURA ', 1, 0, '', 0),
+(948403273, 15, 32, 100.00, 'CR', '30-70', '000000000948403273', 'CREDMOURA            ', 1, 'ACUBAT SA                      ', '10652           ', 30559599820, NULL, 97.77, NULL, NULL, NULL, '00000948403273', '2025-10-22 19:01:03', 100.00, NULL, NULL, '2025-11-04 19:01:03', '000000000948403273', 'CREDMOURA ', 1, 0, '', 0),
+(690758213, 15, 32, 100.00, 'CR', '30-70', '000000000690758213', 'CREDMOURA            ', 1, 'ACUBAT SA                      ', '10652           ', 30559599820, NULL, 97.77, NULL, NULL, NULL, '00000690758213', '2025-10-22 19:03:50', 100.00, NULL, NULL, '2025-11-04 19:03:50', '000000000690758213', 'CREDMOURA ', 1, 0, '', 0),
+(365129535, 16, 32, 107821.38, 'CR', '30-70', '000000000365129535', 'CREDMOURA            ', 1, 'INTERBAT SRL                   ', '10185           ', 30707158952, NULL, 162221.47, NULL, NULL, NULL, '00000365129535', '2025-10-24 09:45:12', 164990.00, NULL, NULL, '2025-11-05 09:45:12', '000000000365129535', 'CREDMOURA ', 1, 0, '', 0),
+(779417958, 16, 32, 100044.70, 'CR', '30-70', '000000000779417958', 'CREDMOURA            ', 1, 'INTERBAT SRL                   ', '10185           ', 30707158952, NULL, 150521.15, NULL, NULL, NULL, '00000779417958', '2025-10-24 11:11:12', 153090.00, NULL, NULL, '2025-11-05 11:11:12', '000000000779417958', 'CREDMOURA ', 1, 0, '', 0),
+(852350050, 15, 32, 100.00, 'CR', '30-70', '000000000852350050', 'CREDMOURA            ', 6, 'ACUBAT SA                      ', '10652           ', 30559599820, NULL, 80.35, NULL, NULL, NULL, '00000852350050', '2025-10-22 19:02:24', 100.00, NULL, NULL, '2025-11-06 19:02:24', '000000000852350050', 'CREDMOURA ', 1, 0, '', 0),
+(517999539, 15, 32, 100.00, 'CR', '30-70', '000000000517999539', 'CREDMOURA            ', 3, 'ACUBAT SA                      ', '10652           ', 30559599820, NULL, 89.58, NULL, NULL, NULL, '00000517999539', '2025-10-22 19:04:26', 100.00, NULL, NULL, '2025-11-06 19:04:26', '000000000517999539', 'CREDMOURA ', 1, 0, '', 0),
+(504974250, 15, 32, 100.00, 'CR', '30-70', '000000000504974250', 'CREDMOURA            ', 6, 'ACUBAT SA                      ', '10652           ', 30559599820, NULL, 80.35, NULL, NULL, NULL, '00000504974250', '2025-10-22 19:04:51', 100.00, NULL, NULL, '2025-11-06 19:04:51', '000000000504974250', 'CREDMOURA ', 1, 0, '', 0),
+(580644304, 16, 32, 111525.33, 'CR', '30-70', '000000000580644304', 'CREDMOURA            ', 3, 'INTERBAT SRL                   ', '10185           ', 30707158952, NULL, 148071.60, NULL, NULL, NULL, '00000580644304', '2025-10-25 15:27:43', 165288.00, NULL, NULL, '2025-11-11 15:27:43', '000000000580644304', 'CREDMOURA ', 1, 0, '', 0);
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

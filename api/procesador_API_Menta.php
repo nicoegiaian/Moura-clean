@@ -332,7 +332,10 @@ class Transaccion {
     public int $operation_number; // Para el campo 'TRANSACCION'
     public int $ref_operation_number; //solo con datos para ANNULMENTS o REFUNDS donde coincidra con el operation_number de un PAYMENT / APPROVED
     public ?string $merchant_additional_info; // Para el campo 'N_COMERCIO'
-    
+    public float $tax_commission;
+    public float $tax_commission_vat;
+    public float $tax_financial_cost;
+    public float $tax_financial_cost_vat;
     
     /**
      * Método "Factory" para crear un objeto desde el array REAL de la API
@@ -371,7 +374,34 @@ class Transaccion {
         $tx->operation_number = (int) ($data['operation_number'] ?? 0);
         $tx->ref_operation_number = (int) ($data['ref_operation_number'] ?? 0);
         $tx->merchant_additional_info = $data['merchant_additional_info'] ?? null;
+        $tx->tax_commission = 0.0;
+        $tx->tax_commission_vat = 0.0;
+        $tx->tax_financial_cost = 0.0;
+        $tx->tax_financial_cost_vat = 0.0;
         
+        $tax_breakdown = $tax_info['tax_breakdown'] ?? [];
+
+        if (is_array($tax_breakdown)) {
+            foreach ($tax_breakdown as $tax) {
+                $tax_code = $tax['tax_code'] ?? '';
+                $amount = (float) ($tax['amount'] ?? 0.0);
+                
+                switch ($tax_code) {
+                    case 'ACQUIRER_TO_CUSTOMER_COMMISSION':
+                        $tx->tax_commission = $amount;
+                        break;
+                    case 'ACQUIRER_TO_CUSTOMER_COMMISSION_VAT_TAX':
+                        $tx->tax_commission_vat = $amount;
+                        break;
+                    case 'FINANCIAL_COST':
+                        $tx->tax_financial_cost = $amount;
+                        break;
+                    case 'FINANCIAL_COST_VAT_TAX':
+                        $tx->tax_financial_cost_vat = $amount;
+                        break;
+                }
+            }
+        }
         return $tx;
     }
 }
@@ -560,8 +590,20 @@ function transformarFila(Transaccion $tx): array
     $filaTransformada['ID_TX_PROCESADOR'] = str_pad('', 30, '0'); // 295-324
     $filaTransformada['BARRA CUPON DE PAGO'] = str_pad('', 150, '0'); // 325-474
     $filaTransformada['ID GATEWAY'] = str_pad('', 30, '0'); // 475-504
-    $filaTransformada['RELLENO 505-534'] = str_pad('', 30, ' '); // 505-534
-    $filaTransformada['RELLENO_535-594'] = str_pad('', 60, ' '); // 535-594
+   
+    $montoComm = $tx->tax_commission * 100;
+    $filaTransformada['TAX_COMMISSION'] = str_pad($montoComm, 11, '0', STR_PAD_LEFT); // 505-515
+   
+    $montoCommVat = $tx->tax_commission_vat * 100;
+    $filaTransformada['TAX_COMMISSION_VAT'] = str_pad($montoCommVat, 11, '0', STR_PAD_LEFT); // 516-526
+   
+    $montoFinCost = $tx->tax_financial_cost * 100;
+    $filaTransformada['TAX_FINANCIAL_COST'] = str_pad($montoFinCost, 11, '0', STR_PAD_LEFT); // 527-537
+   
+    $montoFinCostVat = $tx->tax_financial_cost_vat * 100;
+    $filaTransformada['TAX_FINANCIAL_COST_VAT'] = str_pad($montoFinCostVat, 11, '0', STR_PAD_LEFT); // 538-548
+   
+    $filaTransformada['RELLENO_549_594'] = str_pad('', 46, ' '); // 549-594
     $filaTransformada['ID CAMPAÑA'] = str_pad('', 8, '0'); // 595-602
     $filaTransformada['RELLENO 603-605'] = str_pad('', 3, ' '); // 603-605
     $filaTransformada['BIN DE LA TARJETA'] = str_pad('', 6, '0');// 606-611
@@ -589,7 +631,8 @@ function ensamblarLinea(array $filaProcesada): string
         'RELLENO_169_176', 'RELLENO_177_179', 'CODIGO DE BARRA', 'FECHA PAGO', 'TIPO DE TRANSACCION',
         'RELLENO_247_253', 'ID_CLIENTE', 'FORMA_PAGO','RELLENO_265_268','CANTIDAD_CUOTAS','DNI_CLIENTE',
         'RELLENO_287_294', 'ID_TX_PROCESADOR', 'BARRA CUPON DE PAGO',
-        'ID GATEWAY', 'RELLENO 505-534', 'RELLENO_535-594', 'ID CAMPAÑA', 'RELLENO 603-605',
+        'ID GATEWAY', 'TAX_COMMISSION', 'TAX_COMMISSION_VAT', 'TAX_FINANCIAL_COST', 'TAX_FINANCIAL_COST_VAT',
+        'RELLENO_549_594','ID CAMPAÑA', 'RELLENO 603-605',
         'BIN DE LA TARJETA', 'ID RUBRO COMERCIO', 'ID PROV CLIENTE'
     ];
     
