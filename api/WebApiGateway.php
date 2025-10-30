@@ -242,7 +242,6 @@ class WebApiGateway {
 						
 		$result = $this->sendRequest($accessToken);
 		
-		/* La generacion del Excel de cuotas sera responsabilidad de procesador.php
 		//$data = $result['response'];
 		$data = json_decode($result['response'], true); // con true = array asociativo
 		
@@ -270,7 +269,6 @@ class WebApiGateway {
 		$filename = 'archivocuotas.xlsx';
 		
 		$writer->save(__DIR__ . '/' . $filename);
-		*/
 		
 		return  $result;		
 		

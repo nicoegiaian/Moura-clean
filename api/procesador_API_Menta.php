@@ -335,7 +335,9 @@ class Transaccion {
     public float $tax_commission;
     public float $tax_commission_vat;
     public float $tax_financial_cost;
+    public float $tax_financial_cost_rate = 0.0;
     public float $tax_financial_cost_vat;
+    public float $tax_financial_cost_vat_rate = 0.0;
     
     /**
      * Método "Factory" para crear un objeto desde el array REAL de la API
@@ -395,9 +397,20 @@ class Transaccion {
                         break;
                     case 'FINANCIAL_COST':
                         $tx->tax_financial_cost = $amount;
+                        $tx->tax_financial_cost_rate = (float) ($tax['rate'] ?? 0.0);
                         break;
                     case 'FINANCIAL_COST_VAT_TAX':
                         $tx->tax_financial_cost_vat = $amount;
+                        $rate = (float) ($tax['rate'] ?? 0.0);
+                        if ($rate == 21.0) {
+                            // RECALCULAMOS: Usamos 10.5% de la base del FINANCIAL_COST
+                            // (Asumimos que $tx->tax_financial_cost ya se asignó en el loop)
+                            $tx->tax_financial_cost_vat_rate = 10.5;
+                        } else {
+                            // Si es 10.5 o 0, usamos el monto que vino de la API
+                            $tx->tax_financial_cost_vat_rate = (float) ($tax['rate'] ?? 0.0);;
+                        }
+                        
                         break;
                 }
             }
@@ -603,7 +616,15 @@ function transformarFila(Transaccion $tx): array
     $montoFinCostVat = $tx->tax_financial_cost_vat * 100;
     $filaTransformada['TAX_FINANCIAL_COST_VAT'] = str_pad($montoFinCostVat, 11, '0', STR_PAD_LEFT); // 538-548
    
-    $filaTransformada['RELLENO_549_594'] = str_pad('', 46, ' '); // 549-594
+    // Guardamos el RATE (no el monto) (ej: 15.12% -> 1512)
+    $rateFinCost = $tx->tax_financial_cost_rate * 100;
+    $filaTransformada['TAX_FINANCIAL_COST_RATE'] = str_pad($rateFinCost, 11, '0', STR_PAD_LEFT); // 549-559
+   
+    // Guardamos el RATE del IVA (no el monto) (ej: 21.0% -> 2100)
+    $rateFinCostVat = $tx->tax_financial_cost_vat_rate * 100;
+    $filaTransformada['TAX_FINANCIAL_COST_VAT_RATE'] = str_pad($rateFinCostVat, 11, '0', STR_PAD_LEFT); // 560-570
+    
+    $filaTransformada['RELLENO_571_594'] = str_pad('', 24, ' '); // 571-594
     $filaTransformada['ID CAMPAÑA'] = str_pad('', 8, '0'); // 595-602
     $filaTransformada['RELLENO 603-605'] = str_pad('', 3, ' '); // 603-605
     $filaTransformada['BIN DE LA TARJETA'] = str_pad('', 6, '0');// 606-611
@@ -632,7 +653,8 @@ function ensamblarLinea(array $filaProcesada): string
         'RELLENO_247_253', 'ID_CLIENTE', 'FORMA_PAGO','RELLENO_265_268','CANTIDAD_CUOTAS','DNI_CLIENTE',
         'RELLENO_287_294', 'ID_TX_PROCESADOR', 'BARRA CUPON DE PAGO',
         'ID GATEWAY', 'TAX_COMMISSION', 'TAX_COMMISSION_VAT', 'TAX_FINANCIAL_COST', 'TAX_FINANCIAL_COST_VAT',
-        'RELLENO_549_594','ID CAMPAÑA', 'RELLENO 603-605',
+        'TAX_FINANCIAL_COST_RATE','TAX_FINANCIAL_COST_VAT_RATE',
+        'RELLENO_571_594','ID CAMPAÑA', 'RELLENO 603-605',
         'BIN DE LA TARJETA', 'ID RUBRO COMERCIO', 'ID PROV CLIENTE'
     ];
     

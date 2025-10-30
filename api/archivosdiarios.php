@@ -97,7 +97,9 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$datos['tax_aranceltarjeta_vat'] = substr($registro, 515, 11);		// 516-526: ACQUIRER_TO_CUSTOMER_COMMISSION_VAT_TAX
 		$datos['tax_financial_cost'] = substr($registro, 526, 11);			// 527-537: FINANCIAL_COST
 		$datos['tax_financial_cost_vat'] = substr($registro, 537, 11);  	// 538-548: FINANCIAL_COST_VAT_TAX
-		$datos['relleno_549_594'] = substr($registro, 548, 46);				// 549-594: Relleno de espacios
+		$datos['tax_financial_cost_rate'] = substr($registro, 548, 11);			// 549-559: FINANCIAL_COST_RATE
+		$datos['tax_financial_cost_vat_rate'] = substr($registro, 559, 11);  	// 560-570: FINANCIAL_COST_VAT_TAX_RATE
+		$datos['relleno_571_594'] = substr($registro, 570, 24);				// 571-594: Relleno de espacios
 		$datos['id_campana'] = substr($registro, 594, 8);                 // 595-602
 		$datos['relleno15'] = substr($registro, 602, 3);                 // 603-605
 		$datos['bin_de_la_tarjeta'] = substr($registro, 605, 6);          // 606-611
@@ -891,8 +893,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 	}
 	
-	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo, $ivaArancelTarjetaDesdeArchivo, $descuentoCuotasDesdeArchivo ){
-
+	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo, $ivaArancelTarjetaDesdeArchivo, $ivaDescuentoCuotasDesdeArchivo, $descuentoCuotasDesdeArchivo ){
 		$porcentajes = obtenerPorcentajesDeducciones($dbConnection, $fecha_liquidacion);		
 		
 		
@@ -932,12 +933,26 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			$costoAcreditacion = $importeBruto * $porcentajes[ID_COSTO_ACREDITACION_QR] / 100  ;
 		}
 	
-		$descuentoCuotas = $descuentoCuotasDesdeArchivo;
+		if($forma_de_pago == METODO_PAGO_BIND_CREDITO_CUOTAS){
+			//Para descuento cuotas ese % de descuento ya incluye IVA		
+			if($cuotas == 3){
+				$descuentoCuotas = $importeBrutoOriginal * ( $porcentajes[ID_CFT_CLIENTE_3_CUOTAS]) / 100  ;
+			}
+			elseif($cuotas == 6){
+				$descuentoCuotas = $importeBrutoOriginal * ( $porcentajes[ID_CFT_CLIENTE_6_CUOTAS]) / 100  ;
+			}				   
+		}
+		else {
+			$descuentoCuotas = 0;
+		}
 		
 		$arancelTarjeta = $arancelTarjetaDesdeArchivo;
 		
 		$beneficioBase = $importeBruto * 0.005; // 0.005 es 0.5%
-		
+		$rate_costomipyme_from_bind = $descuentoCuotasDesdeArchivo; // Este parámetro ahora trae el RATE
+		$costomipyme = $importeBrutoOriginal * $rate_costomipyme_from_bind / 100;
+		$ivacostomipyme = $ivaDescuentoCuotasDesdeArchivo * $costomipyme / 100;
+
 		if($forma_de_pago == METODO_PAGO_BIND_CREDITO_CUOTAS && ($cuotas == 3 || $cuotas == 6)) {
 			
 			$cftCliente = 0;
@@ -947,10 +962,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 				$cftCliente = $importeBrutoOriginal * $porcentajes[ID_CFT_CLIENTE_6_CUOTAS] / 100;
 			}
 			
-			// 2) $descuentoCuotasDesdeArchivo es el FINANCIAL_COST que viene del BIND (Paso anterior)
-			// Fórmula: (CFT Cliente) - (Financial Cost) + (Beneficio Base)
-			$beneficioCredMoura = ($cftCliente - $descuentoCuotasDesdeArchivo) + $beneficioBase;
-			
+			// Fórmula: (CFT Cliente) - (Costo MiPyme) + (Beneficio Base)
+			$beneficioCredMoura = ($cftCliente - $costomipyme) + $beneficioBase;
 		} else {
 			// 3) Si no es 3 o 6 cuotas, es solo el Beneficio Base
 			$beneficioCredMoura = $beneficioBase;
@@ -958,7 +971,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 		$montoiva_comision_y_costo = ($comision + $costoAcreditacion) * IVA ;
 		$montoiva = $montoiva_comision_y_costo + $ivaArancelTarjetaDesdeArchivo; // 25/06/2025 $descuentoCuotas lleva IVA = 0;
-
+		$montoiva = $montoiva_comision_y_costo + $ivaArancelTarjetaDesdeArchivo + $ivacostomipyme;
 
 		$sirtac = $importeBruto * PORCENTAJE_SIRTAC / 100;
 		
@@ -1017,9 +1030,20 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 		$arancelTarjetaNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta']);
 		$ivaArancelTarjetaNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta_vat']);
-		$descuentoCuotasNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost']);
+		//$descuentoCuotasNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost']);
 
-		$importeNeto = calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fechaLiquidacion, $datosBIND['forma_pago'], ltrim($datosBIND['cantidad_de_cuotas'],'0'), $arancelTarjetaNum, $ivaArancelTarjetaNum, $descuentoCuotasNum );
+		// Leemos los RATES (que ahora vienen en estos campos)
+		$rateIvaDescuentoCuotasNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_vat_rate']);
+		$rateDescuentoCuotasNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_rate']); // 9.68
+
+		// ¡OJO! Tu lógica de IVA (21->10.5) necesita el MONTO del IVA, no el RATE.
+		// Por ahora, le paso el RATE a la función. Revisa el Punto 4 abajo.
+		// Vamos a asumir que $rateIvaDescuentoCuotasNum es el MONTO por ahora.
+		$montoIvaFinCost = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_vat_rate']); //10.5
+
+
+		$importeNeto = calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fechaLiquidacion, $datosBIND['forma_pago'], ltrim($datosBIND['cantidad_de_cuotas'],'0'), $arancelTarjetaNum, $ivaArancelTarjetaNum, $montoIvaFinCost, $rateDescuentoCuotasNum );
+
 		
 		
 		$importeNetoMoura = $importeNeto * (obtenerPorcentajeMoura($dbConnection, $datosBIND['numero_de_comercio'],$fechaLiquidacion) / 100 );
@@ -1426,7 +1450,9 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			credmoura,
 			sirtac,
 			otrosimpuestos,
-			beneficiocredmoura
+			beneficiocredmoura,
+			costomipyme,
+			IVAcostomipyme
 		) VALUES (
 			:nrotransaccion,
 			:comisionpd,
@@ -1444,7 +1470,9 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			:credmoura,
 			:sirtac,
 			:otrosimpuestos,
-			:beneficiocredmoura
+			:beneficiocredmoura,
+			:costomipyme,
+			:IVAcostomipyme
 		)";
 	
 		// Preparamos la consulta
@@ -1474,7 +1502,16 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		*/
 
 		$porcentajes = obtenerPorcentajesDeducciones($dbConnection, $fechaLiquidacion);
-		
+
+		// --- INICIO: Lógica costomipyme (Req 3) ---
+		// Leemos los RATES que vienen del archivo BIND
+		$rate_costomipyme_from_bind = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_rate']);
+		$rate_iva_costomipyme_from_bind = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_vat_rate']);
+		// 1. Calculamos costomipyme (aplicando el rate del BIND al bruto)
+		$costomipyme = $importeBrutoOriginal * $rate_costomipyme_from_bind / 100;
+
+		$IVAcostomipyme = $costomipyme * $rate_iva_costomipyme_from_bind / 100;
+
 		// En la tabla de detalle de liquidacion el par de campos concepto/iva suman el total
 		// NETO  =  TOTAL / (1 + IVA)
 		$comisionPD = 0;
@@ -1501,7 +1538,24 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		
 		$comisionProntoPago = $importeBruto * $porcentajes[ID_COMISION_PRONTO_PAGO] / 100  ;
 		
-		$descuentoCuotas = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost']);
+		if($datosBIND['forma_pago'] == METODO_PAGO_BIND_CREDITO_CUOTAS){
+			
+			if($cuotas == 3){
+				$descuentoCuotas = $importeBrutoOriginal * ($porcentajes[ID_CFT_CLIENTE_3_CUOTAS]) / 100  ;
+			                                 //Para descuento cuotas ese % de descuento ya incluye IVA y ese iva es de 10.5%
+											 //El descuentoCuotas siempre es con el montoBrutoOriginal antes de haberle sumado el Cft.Cliente.
+			}
+			elseif($cuotas == 6){
+				$descuentoCuotas = $importeBrutoOriginal * ($porcentajes[ID_CFT_CLIENTE_6_CUOTAS]) / 100  ;
+			                                 //Para descuento cuotas ese % de descuento ya incluye IVA y ese iva es de 10.5%
+											 //El descuentoCuotas siempre es con el montoBrutoOriginal antes de haberle sumado el Cft.Cliente.
+			}
+			
+		}
+		else{
+			$descuentoCuotas = 0;
+		}
+
 
 		if($datosBIND['forma_pago'] == METODO_PAGO_BIND_CREDITO || $datosBIND['forma_pago'] == METODO_PAGO_BIND_DEBIN){
 			$costoAcreditacion = $importeBruto * $porcentajes[ID_COSTO_ACREDITACION_CREDITO] / 100  ;
@@ -1536,8 +1590,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 			}
 			
 			// Fórmula: (CFT Cliente) - (Financial Cost) + (Beneficio Base)
-			$beneficioCredMoura = ($cftCliente - $descuentoCuotas) + $beneficioBase;
-			
+			$beneficioCredMoura = ($cftCliente - $costomipyme) + $beneficioBase;			
 		} else {
 			// 3) Si no es 3 o 6 cuotas, es solo el Beneficio Base
 			$beneficioCredMoura = $beneficioBase;
@@ -1553,7 +1606,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$credMoura = $importeBruto * $porcentajeAhorroSplit / 100;
 		
 		$ivaArancelTarjeta = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta_vat']);
-		$ivaDescuentoCuotas = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_vat']);
+		$ivaDescuentoCuotas = 0; //el IVA para el costo de financiacion de Moura es 0
 
 		// --- INICIO DEBUG BENEFICIO ---
 		echo "<pre>";
@@ -1583,7 +1636,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$stmt->bindValue(':comisionprontopago', $comisionProntoPago);
 		$stmt->bindValue(':ivacomisionprontopago', $comisionProntoPago * IVA);
 		$stmt->bindValue(':descuentocuotas', $descuentoCuotas);
-		$stmt->bindValue(':ivadescuentocuotas', $ivaDescuentoCuotas);
+		$stmt->bindValue(':ivadescuentocuotas', $ivaDescuentoCuotas); //divido en 2 porque de Menta viene un 21% cuando deberia ser 10,5%
 		$stmt->bindValue(':costoacreditacion', $costoAcreditacion);
 		$stmt->bindValue(':ivacostoacreditacion', $costoAcreditacion * IVA);
 		$stmt->bindValue(':aranceltarjeta', $arancelTarjeta);
@@ -1592,6 +1645,8 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$stmt->bindValue(':sirtac', $importeBruto * PORCENTAJE_SIRTAC / 100); 
 		$stmt->bindValue(':otrosimpuestos', $importeBruto * $porcentajes[ID_OTROS_IMPUESTOS] / 100);		
 		$stmt->bindValue(':beneficiocredmoura', $beneficioCredMoura);
+		$stmt->bindValue(':costomipyme', $costomipyme);
+		$stmt->bindValue(':IVAcostomipyme', $IVAcostomipyme);
 	
 		// Ejecutamos la consulta
 		if ($stmt->execute()) {
