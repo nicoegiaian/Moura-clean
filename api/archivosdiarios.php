@@ -1,4 +1,5 @@
 <?php
+
 error_reporting(E_ALL);
 include("constants.php");
 
@@ -890,7 +891,6 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 	}
 	
-	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo, $ivaArancelTarjetaDesdeArchivo ){
 	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo, $ivaArancelTarjetaDesdeArchivo, $descuentoCuotasDesdeArchivo ){
 
 		$porcentajes = obtenerPorcentajesDeducciones($dbConnection, $fecha_liquidacion);		
@@ -1009,7 +1009,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 		
 		//Si es pago en cuotas se suma al bruto el Cft. Cliente.
-		/* no recalculo el importe Bruto porque se supone que menta trae en el gross amount el importe que necesitamos, no asi en el archivo que venia del BIND
+		/* no recalculo el importe Bruto porque se supone que MENTA trae en el gross amount el importe que necesitamos, no asi en el archivo que venia del BIND
 		if($datosBIND['forma_pago'] == METODO_PAGO_BIND_CREDITO_CUOTAS){
 			$importeBruto = recalcularImporteBruto($dbConnection, $importeBruto, $fechaLiquidacion, ltrim($datosBIND['cantidad_de_cuotas'],'0'));			
 		}
@@ -1467,10 +1467,12 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 		
 		//Si es pago en cuotas se suma al bruto el Cft. Cliente.
+		/* MENTA ya trae el importe Bruto correcto en gross_amount, no es necesario recalcular
 		if($datosBIND['forma_pago'] == METODO_PAGO_BIND_CREDITO_CUOTAS){
 			$importeBruto = recalcularImporteBruto($dbConnection, $importeBruto, $fechaLiquidacion, $cuotas);	
 		}	
-		
+		*/
+
 		$porcentajes = obtenerPorcentajesDeducciones($dbConnection, $fechaLiquidacion);
 		
 		// En la tabla de detalle de liquidacion el par de campos concepto/iva suman el total
@@ -1553,6 +1555,25 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$ivaArancelTarjeta = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta_vat']);
 		$ivaDescuentoCuotas = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_vat']);
 
+		// --- INICIO DEBUG BENEFICIO ---
+		echo "<pre>";
+		echo "--- DEBUG beneficiocredmoura para TX: " . $datosBIND['transaccion'] . " ---\n";
+		echo "Importe Bruto: $importeBruto\n";
+		echo "Importe Bruto Original: $importeBrutoOriginal\n";
+		echo "Beneficio Base (0.5%): $beneficioBase\n";
+		echo "Forma de Pago BIND: " . $datosBIND['forma_pago'] . " (Esperado: " . METODO_PAGO_BIND_CREDITO_CUOTAS . ")\n";
+		echo "Cuotas: $cuotas\n";
+		echo "--- Dentro del IF (3 o 6 cuotas) ---\n";
+		echo "CFT Cliente (%): " . $porcentajes[ID_CFT_CLIENTE_3_CUOTAS] . "\n";
+		echo "Valor CFT Cliente (Calculado): $cftCliente\n";
+		echo "Valor Financial Cost (descuentocuotas): $descuentoCuotas\n";
+		echo "--- CÁLCULO FINAL ---\n";
+		echo "Fórmula: (cftCliente - descuentoCuotas) + beneficioBase\n";
+		echo "Fórmula: ($cftCliente - $descuentoCuotas) + $beneficioBase\n";
+		echo "Resultado (beneficiocredmoura): $beneficioCredMoura\n";
+		echo "---------------------------------\n";
+		echo "</pre>";
+		// --- FIN DEBUG BENEFICIO ---
 		// Asignamos los valores a los parámetros
 		$stmt->bindValue(':nrotransaccion', intval($datosBIND['transaccion']));
 		$stmt->bindValue(':comisionpd', $comisionPD);
@@ -1731,6 +1752,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 				
 				////////////////////////////////////////////////////////////////////////////
 				//25/06/2025 Temporal hasta que BIND informe en el archivo la cantidad de cuotas de la transacciones
+				/* Las cuotas vienen de la API de Menta
 				$cuotas = obtenerCantidadCuotasDesdeExcel();
 				$nroTransaccion = ltrim($datos['transaccion'],'0'); //Se quitan los ceros a la izquierda que vienen en el archivo BIND
 				if (isset($cuotas[$nroTransaccion])) {
@@ -1738,6 +1760,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 				} else {
 					$datos['cantidad_de_cuotas'] = 1; // Si no se colocó en el Excel se considera 1 cuota
 				}
+				*/
 				////////////////////////////////////////////////////////////////////////////
 				if( comercioExistente($dbConnection,$datos['numero_de_comercio']) == 1 ){
 					$datosMoura = formatearDatosBINDaMoura($dbConnection,$datos);
