@@ -893,7 +893,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 	}
 	
-	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo, $ivaArancelTarjetaDesdeArchivo, $ivaDescuentoCuotasDesdeArchivo, $descuentoCuotasDesdeArchivo ){
+	function calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fecha_liquidacion, $forma_de_pago, $cuotas, $arancelTarjetaDesdeArchivo, $ivaArancelTarjetaDesdeArchivo, $ivatasacostomipyme, $tasacostomipyme ){
 		$porcentajes = obtenerPorcentajesDeducciones($dbConnection, $fecha_liquidacion);		
 		
 		
@@ -949,9 +949,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$arancelTarjeta = $arancelTarjetaDesdeArchivo;
 		
 		$beneficioBase = $importeBruto * 0.005; // 0.005 es 0.5%
-		$rate_costomipyme_from_bind = $descuentoCuotasDesdeArchivo; // Este parámetro ahora trae el RATE
+		$rate_costomipyme_from_bind = $tasacostomipyme; // Este parámetro ahora trae el RATE
 		$costomipyme = $importeBrutoOriginal * $rate_costomipyme_from_bind / 100;
-		$ivacostomipyme = $ivaDescuentoCuotasDesdeArchivo * $costomipyme / 100;
+		// trunco a 2 decimales y no redondeo por lo mismo hecho al insertar este iva en liquidacionesdetalle
+		$ivacostomipyme = floor(($ivatasacostomipyme * $costomipyme / 100) * 100) / 100;
 
 		if($forma_de_pago == METODO_PAGO_BIND_CREDITO_CUOTAS && ($cuotas == 3 || $cuotas == 6)) {
 			
@@ -970,7 +971,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		}
 
 		$montoiva_comision_y_costo = ($comision + $costoAcreditacion) * IVA ;
-		$montoiva = $montoiva_comision_y_costo + $ivaArancelTarjetaDesdeArchivo; // 25/06/2025 $descuentoCuotas lleva IVA = 0;
+		$montoiva = $montoiva_comision_y_costo + $ivaArancelTarjetaDesdeArchivo;
 		$montoiva = $montoiva_comision_y_costo + $ivaArancelTarjetaDesdeArchivo + $ivacostomipyme;
 
 		$sirtac = $importeBruto * PORCENTAJE_SIRTAC / 100;
@@ -1030,19 +1031,17 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 		$arancelTarjetaNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta']);
 		$ivaArancelTarjetaNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta_vat']);
-		//$descuentoCuotasNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost']);
 
-		// Leemos los RATES (que ahora vienen en estos campos)
-		$rateIvaDescuentoCuotasNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_vat_rate']);
-		$rateDescuentoCuotasNum = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_rate']); // 9.68
-
-		// ¡OJO! Tu lógica de IVA (21->10.5) necesita el MONTO del IVA, no el RATE.
-		// Por ahora, le paso el RATE a la función. Revisa el Punto 4 abajo.
-		// Vamos a asumir que $rateIvaDescuentoCuotasNum es el MONTO por ahora.
-		$montoIvaFinCost = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_vat_rate']); //10.5
+		// Dado que Menta aplica el costomipyme sobre el (bruto - aranceltarjeta) y nosotros consideramos segun dice Payway que el costomipyme se 
+		// calcula solo sobre el Bruto, traemos la tasa del costomipyme para calcular de nuestro lado
+		$tasaCostoMiPyme = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_rate']); // 9.68
+		// Dado que Menta aplica el 21% a la tasa de costomipyme y debe ser 10,5%, hasta que Menta impacte este cambio, el siguiente campo de datosBind ya viene con la logica
+		// de traer 10,5% si en Menta venia 21%, pero si Menta realiza el cambio a 10,5% la siguiente variable traera tambien el 10,5%. La logica está implementada en 
+		// el proceso que toma la info de la API de Menta (procesador_API_Menta.php)
+		$IVA_tasaCostoMiPyme = convertirImporteFormatoBINDANumerico($datosBIND['tax_financial_cost_vat_rate']); //10.5
 
 
-		$importeNeto = calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fechaLiquidacion, $datosBIND['forma_pago'], ltrim($datosBIND['cantidad_de_cuotas'],'0'), $arancelTarjetaNum, $ivaArancelTarjetaNum, $montoIvaFinCost, $rateDescuentoCuotasNum );
+		$importeNeto = calcularImporteNeto($dbConnection, $importeBruto, $importeBrutoOriginal, $fechaLiquidacion, $datosBIND['forma_pago'], ltrim($datosBIND['cantidad_de_cuotas'],'0'), $arancelTarjetaNum, $ivaArancelTarjetaNum, $IVA_tasaCostoMiPyme, $tasaCostoMiPyme );
 
 		
 		
@@ -1510,7 +1509,9 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		// 1. Calculamos costomipyme (aplicando el rate del BIND al bruto)
 		$costomipyme = $importeBrutoOriginal * $rate_costomipyme_from_bind / 100;
 
-		$IVAcostomipyme = $costomipyme * $rate_iva_costomipyme_from_bind / 100;
+		// la siguiente funcion trunca los dos primeros decimales, ya que si no se hace asi y se suma luego con el IVA arrancel tarjeta que viene de Menta que redondea 
+		// hacia arriba, al hacer lo mismo con el IVA incrementa en al menos 1 centavo toda la operacion.
+		$IVAcostomipyme = floor( ($costomipyme * $rate_iva_costomipyme_from_bind / 100) * 100 ) / 100;
 
 		// En la tabla de detalle de liquidacion el par de campos concepto/iva suman el total
 		// NETO  =  TOTAL / (1 + IVA)
@@ -1608,25 +1609,6 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 		$ivaArancelTarjeta = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta_vat']);
 		$ivaDescuentoCuotas = 0; //el IVA para el costo de financiacion de Moura es 0
 
-		// --- INICIO DEBUG BENEFICIO ---
-		echo "<pre>";
-		echo "--- DEBUG beneficiocredmoura para TX: " . $datosBIND['transaccion'] . " ---\n";
-		echo "Importe Bruto: $importeBruto\n";
-		echo "Importe Bruto Original: $importeBrutoOriginal\n";
-		echo "Beneficio Base (0.5%): $beneficioBase\n";
-		echo "Forma de Pago BIND: " . $datosBIND['forma_pago'] . " (Esperado: " . METODO_PAGO_BIND_CREDITO_CUOTAS . ")\n";
-		echo "Cuotas: $cuotas\n";
-		echo "--- Dentro del IF (3 o 6 cuotas) ---\n";
-		echo "CFT Cliente (%): " . $porcentajes[ID_CFT_CLIENTE_3_CUOTAS] . "\n";
-		echo "Valor CFT Cliente (Calculado): $cftCliente\n";
-		echo "Valor Financial Cost (descuentocuotas): $descuentoCuotas\n";
-		echo "--- CÁLCULO FINAL ---\n";
-		echo "Fórmula: (cftCliente - descuentoCuotas) + beneficioBase\n";
-		echo "Fórmula: ($cftCliente - $descuentoCuotas) + $beneficioBase\n";
-		echo "Resultado (beneficiocredmoura): $beneficioCredMoura\n";
-		echo "---------------------------------\n";
-		echo "</pre>";
-		// --- FIN DEBUG BENEFICIO ---
 		// Asignamos los valores a los parámetros
 		$stmt->bindValue(':nrotransaccion', intval($datosBIND['transaccion']));
 		$stmt->bindValue(':comisionpd', $comisionPD);
