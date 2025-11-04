@@ -1,57 +1,44 @@
 ============================================
-== PROCESO INICIADO: 2025-10-30 17:35:28 ==
+== PROCESO INICIADO: 2025-11-03 11:27:42 ==
 ============================================
 
-INFO: Procesando transacciones para la fecha: 20251022
-INFO: Rango de búsqueda: 2025-10-22T00:00:00Z -> 2025-10-22T23:59:59Z
+INFO: Procesando transacciones para la fecha: 011125
+INFO: Rango de búsqueda: 2025-11-01T00:00:00Z -> 2025-11-01T23:59:59Z
 ============================================
 == INICIANDO PROCESO DE TRANSACCIONES MENTA ==
 ============================================
 
 --- FASE 1: Autenticación ---
-INFO: Usando token válido desde caché.
+INFO: El token en caché ha expirado o es inválido.
+ACCION: Solicitando nuevo token de acceso a Menta...
+EXITO: Nuevo token obtenido y guardado en caché.
+       (Expira en 43200 segundos)
 
 --- FASE 2: Petición de Transacciones ---
 INFO: Solicitando página 0...
-EXITO: Se obtuvieron 10 transacciones de la página 0.
-       (Página 1 de 1. Total acumulado: 10)
+EXITO: Se obtuvieron 1 transacciones de la página 0.
+       (Página 1 de 1. Total acumulado: 1)
 
---- FIN FASE 2: Se obtuvieron un total de 10 transacciones. ---
+--- FIN FASE 2: Se obtuvieron un total de 1 transacciones. ---
 
 --- FASE 3: Mapeo a Clases ---
-EXITO: Se mapearon 10 objetos Transaccion.
+EXITO: Se mapearon 1 objetos Transaccion.
 
 --- FASE 5: Generación de Archivos de Salida ---
 Cálculo de extensión de archivo...
-FechaProceso es día hábil. La extensión se basará en esta fecha.
-Fecha para Extensión calculada: 22-10-2025
-Extensión de archivo calculada: A22
+Fecha para Extensión calculada: 03-11-2025
+Extensión de archivo calculada: B03
 Generando archivo 'archivocuotas.xlsx'...
-Archivo 'archivocuotas.xlsx' generado con 7 registros.
-Rate FINANCIAL COST: 0
-Rate IVA FINANCIAL COST: 0
-Rate FINANCIAL COST: 0
-Rate IVA FINANCIAL COST: 0
-Rate FINANCIAL COST: 968
-Rate IVA FINANCIAL COST: 1050
-Rate FINANCIAL COST: 1787
-Rate IVA FINANCIAL COST: 1050
-Rate FINANCIAL COST: 0
-Rate IVA FINANCIAL COST: 0
-Rate FINANCIAL COST: 968
-Rate IVA FINANCIAL COST: 1050
-Rate FINANCIAL COST: 1787
-Rate IVA FINANCIAL COST: 1050
+Archivo 'archivocuotas.xlsx' generado con 1 registros.
 
---- Lote #1 para Fecha Proceso 22-10-2025 ---
-    -> Generando archivo: archivos/A065BOTON221025.A22
-    -> Archivo generado con 7 registros de transacciones en status APPROVED.
-    -> Se descartaron 3 registros por transacciones con estados FAILED, REVERSED o REJECTED.
+--- Lote #1 para Fecha Proceso 01-11-2025 ---
+    -> Generando archivo: archivos/A065BOTON011125.B03
+    -> Archivo generado con 1 registros de transacciones en status APPROVED.
     -> Generando archivo A065DEVBOTON...
-    -> Archivo archivos/A065DEVBOTON221025.A22 generado con éxito.
+    -> Archivo archivos/A065DEVBOTON011125.B03 generado con éxito.
 
 
 ============================================
-== PROCESO FINALIZADO: 2025-10-30 17:35:29 ==
+== PROCESO FINALIZADO: 2025-11-03 11:27:43 ==
 == DURACIÓN TOTAL: 0.02 minutos ==
 ============================================

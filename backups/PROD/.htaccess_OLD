@@ -1,0 +1,10 @@
+Header set Access-Control-Allow-Origin "https://cobrosflex.com.ar"
+
+RewriteEngine On
+RewriteBase /
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+RewriteRule ^transaccionesdiarias/([^/]+)$ /api/index.php?table=transaccionesdiarias&comercio=$1 [L,QSA]
+RewriteRule ^TEST/transaccionesdiarias/([^/]+)$ /test/api/index.php?table=transaccionesdiarias&comercio=$1 [L,QSA]
