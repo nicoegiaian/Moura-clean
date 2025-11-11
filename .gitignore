@@ -8,3 +8,4 @@ api/.env
 /var/
 /vendor/
 api/constants.php
+/backups
