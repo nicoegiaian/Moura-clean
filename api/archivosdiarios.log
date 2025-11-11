@@ -1,0 +1,16 @@
+============================================
+== INICIANDO ARCHIVOS DIARIOS: 2025-11-11 10:22:56 ==
+============================================
+
+INFO: Fecha de proceso determinada: 061125
+
+
+
+--- ERROR DE PROCESAMIENTO FATAL EN ARCHIVOS DIARIOS ---
+Mensaje: Error al conectar con la base de datos: SQLSTATE[HY000] [1698] Access denied for user 'u156146850_moura_test'@'localhost'
+
+
+============================================
+== PROCESO FINALIZADO: 2025-11-11 10:22:56 ==
+== DURACIÓN TOTAL: 0 minutos ==
+============================================

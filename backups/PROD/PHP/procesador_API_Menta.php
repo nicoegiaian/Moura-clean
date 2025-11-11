@@ -45,7 +45,6 @@ function guardar_log_al_finalizar() {
 }
 
 // Cargar las dependencias de Composer (Guzzle, DotEnv)
-define('DIR_OUTPUT', getenv('PHP_PROCESS_PATH') ?: __DIR__);
 require __DIR__ . '/vendor/autoload.php';
 require_once 'constants.php';
 
@@ -81,8 +80,6 @@ if (isset($_GET['fecha'])) {
 
 if ($fechaProcesoStr === null) {
     echo "ERROR: No se proporcionó la fecha. Use ?fecha=... o como argumento en la CLI.\n";
-    ob_end_flush(); 
-    ob_start();
     throw new \Exception("ERROR: No se proporcionó la fecha. Use ?fecha=... o como argumento en la CLI.\n");
 }
 
@@ -96,8 +93,6 @@ if (preg_match('/^\d{8}$/', $fechaProcesoStr)) {
     $formatoFecha = 'dmy'; // Formato: ddmmaa
 } else {
     echo "ERROR: El formato de fecha debe ser 'aaaammdd' o 'ddmmaa'. Se recibió: $fechaProcesoStr\n";
-    ob_end_flush(); 
-    ob_start();
     throw new \Exception ("ERROR: El formato de fecha debe ser 'aaaammdd' o 'ddmmaa'. Se recibió: $fechaProcesoStr\n");
 }
 
@@ -123,15 +118,14 @@ try {
 
 } catch (Exception $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
-    ob_end_flush(); 
-    ob_start();
     throw new Exception("ERROR: " . $e->getMessage() . "\n");
 }
 
 // --- Definiciones y Constantes ---
-$MENTA_USER = getenv('MENTA_USER');
-$MENTA_PASSWORD = getenv('MENTA_PASSWORD');
-$MENTA_API_URL = getenv('MENTA_API_URL');
+$MENTA_USER = $_ENV['MENTA_USER'];
+$MENTA_PASSWORD = $_ENV['MENTA_PASSWORD'];
+// Asumo esta URL base, ¡ajústala según la documentación!
+$MENTA_API_URL = $_ENV['MENTA_API_URL']; 
 
 
 // Dónde guardaremos nuestro token temporalmente
@@ -219,33 +213,19 @@ function fase1_autenticacion() {
             echo "ERROR: La API devolvió un estado no exitoso: " . $response->getStatusCode() . "\n";
         }
 
-    } catch (GuzzleHttp\Exception\ConnectException $e) {
-        // Fallo de red/conexión (no hay respuesta HTTP)
-        echo "ERROR CRITICO: Fallo de red/conexión al intentar obtener el token.\n";
-        ob_end_flush(); 
-        ob_start();
-        $errorMessage = "Fallo de conexión Guzzle: " . $e->getMessage();
-        throw new \Exception($errorMessage, 0, $e); 
-        
-    } catch (GuzzleHttp\Exception\ClientException $e) {
-        // Fallo 4xx/5xx (hay respuesta HTTP)
-        echo "ERROR CRITICO: La API devolvió un código de error (4xx/5xx).\n";
-        echo "Mensaje: " . $e->getMessage() . "\n";
-        
-        // Aquí sí hay respuesta
-        echo "Respuesta de la API: " . $e->getResponse()->getBody()->getContents() . "\n";
-        ob_end_flush(); 
-        ob_start();
-        $errorMessage = "Fallo 4xx/5xx de Autenticación: " . $e->getMessage();
-        throw new \Exception($errorMessage, 0, $e); 
-        
     } catch (GuzzleException $e) {
-        // Catch general para otros errores Guzzle no clasificados
-        ob_end_flush(); 
-        ob_start();
-        $errorMessage = "Fallo Guzzle general: " . $e->getMessage();
-        throw new \Exception($errorMessage, 0, $e); 
-    }
+        // Error de conexión o error de la API (4xx, 5xx)
+        echo "ERROR CRITICO: No se pudo obtener el token.\n";
+        echo "Mensaje: " . $e->getMessage() . "\n";
+        // Si el error es 400/401, probablemente tus credenciales están mal
+        if ($e->hasResponse()) {
+            echo "Respuesta de la API: " . $e->getResponse()->getBody()->getContents() . "\n";
+        }
+        $errorMessage = "Fallo de autenticación. Mensaje Guzzle: " . $e->getMessage();
+        
+        // Detiene la ejecución de fase1 y propaga el error al bloque 'try' principal.
+        throw new \Exception($errorMessage, 0, $e);
+        }
 }
 
 
@@ -313,8 +293,6 @@ function fase2_peticion_transacciones() {
             } else {
                 $errorMessage = "La API de Menta devolvió un código HTTP de error: " . $response->getStatusCode();
                 echo "ERROR CRÍTICO: " . $errorMessage . "\n";
-                ob_end_flush(); 
-                ob_start();
                 throw new \Exception($errorMessage);
             }
 
@@ -326,8 +304,6 @@ function fase2_peticion_transacciones() {
                 // Una lógica más avanzada re-intentaría la Fase 1 aquí.
                 echo "Respuesta de la API: " . $e->getResponse()->getBody()->getContents() . "\n";
             }
-            ob_end_flush(); 
-            ob_start();
             throw new \Exception("Fallo en la comunicación con la API de Menta.", 0, $e);        }
 
     } while ($paginaActual < $paginasTotales); // Continuamos mientras haya páginas por pedir
@@ -763,20 +739,18 @@ function fase5_generar_archivos() {
     }
 
     $writer = new Xlsx($spreadsheetCuotas);
-    $rutaArchivoCuotas = DIR_OUTPUT . '/archivocuotas.xlsx';
+    $rutaArchivoCuotas = 'archivocuotas.xlsx'; 
     $writer->save($rutaArchivoCuotas);
     echo "Archivo 'archivocuotas.xlsx' generado con $registrosCuotas registros.\n";
 
     // --- 3. GENERACIÓN DE ARCHIVO DE LOTE (A065BOTON...) ---
 
     // 3.1. VERIFICAR/CREAR DIRECTORIO DE SALIDA
-    $directorioSalida = DIR_OUTPUT . '/archivos';
+    $directorioSalida = 'archivos';
     if (!is_dir($directorioSalida)) {
         echo "Creando directorio de salida en: $directorioSalida\n";
         if (!mkdir($directorioSalida, 0777, true)) {
             echo("Error: No se pudo crear el directorio de salida: $directorioSalida\n");
-            ob_end_flush(); 
-            ob_start();
             throw new Exception("Error: No se pudo crear el directorio de salida: $directorioSalida\n");
         }
     }
@@ -828,8 +802,6 @@ function fase5_generar_archivos() {
         $archivoSalida = fopen($rutaArchivoCompleta, 'w');
         if (!$archivoSalida) {
             echo("    -> ERROR: No se pudo abrir el archivo de salida: $rutaArchivoCompleta\n");
-            ob_end_flush(); 
-            ob_start();
             throw new \Exception("    -> ERROR: No se pudo abrir el archivo de salida: $rutaArchivoCompleta\n");
         }
 

@@ -18,69 +18,9 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-function guardar_log_archivosdiarios() {
-    global $AD_START_TIME;
-    $archivoLog = __DIR__ . '/archivosdiarios.log';
-    $contenidoLog = ob_get_contents();
-    ob_end_clean();
-
-	
-    $endTime = microtime(true); 
-    $durationSeconds = $endTime - ($AD_START_TIME ?? $endTime); 
-    $durationMinutes = round($durationSeconds / 60, 2); 
-    
-    $footerLog = "\n\n============================================\n";
-    $footerLog .= "== PROCESO FINALIZADO: " . (new DateTime())->format('Y-m-d H:i:s') . " ==\n";
-    $footerLog .= "== DURACIÓN TOTAL: $durationMinutes minutos ==\n";
-    $footerLog .= "============================================\n";
-
-    file_put_contents($archivoLog, $contenidoLog . $footerLog);
-	}
-
-	set_exception_handler(function (\Throwable $exception) {
-		// Usa 'echo' para que el mensaje se capture en el log (Output Buffer)
-		echo "\n\n--- ERROR NO CAPTURADO (DB/OTRO) ---\n";
-		echo "Tipo: " . get_class($exception) . "\n";
-		echo "Mensaje: " . $exception->getMessage() . "\n";
-		// Forzamos la salida con código 1
-		exit(1); 
-	});
-	
-	register_shutdown_function(function() {
-		$error = error_get_last();
-		// Solo actuamos si es un error fatal de PHP (E_ERROR, E_PARSE, E_CORE_ERROR, etc.)
-		if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-			// Usa 'echo' para que el mensaje se capture en el log
-			echo "\n\n--- ERROR FATAL DE PHP DETECTADO ---\n";
-			echo "Tipo: " . $error['message'] . "\n";
-			echo "Línea: " . $error['line'] . " en " . $error['file'] . "\n";
-			// Si el script no ha terminado ya, forzamos la salida con código 1
-			if (ob_get_level() > 0) {
-				ob_end_flush();
-			}
-			exit(1);
-		}
-	});
-	
-	ob_start(); // Inicia el búfer
-	register_shutdown_function('guardar_log_archivosdiarios'); // Llama al guardado de log
-
-	// Capturamos el tiempo exacto de inicio en una variable global
-	$AD_START_TIME = microtime(true);
-
-	echo "============================================\n";
-	echo "== INICIANDO ARCHIVOS DIARIOS: " . (new DateTime())->format('Y-m-d H:i:s') . " ==\n";
-	echo "============================================\n\n";
-	// =================================================================
-	// LOGGING FIN
-	// =================================================================
-
-
 	function obtenerCantidadCuotasDesdeExcel(){
 		
-		$rutabase = getenv("PHP_PROCESS_PATH");
-
-		$archivo = $rutabase . 'archivos/archivocuotas.xlsx';
+		$archivo = 'archivocuotas.xlsx';
 		$reader = IOFactory::createReader('Xlsx');
 		$spreadsheet = $reader->load($archivo);
 		$hoja = $spreadsheet->getActiveSheet();
@@ -227,8 +167,7 @@ function guardar_log_archivosdiarios() {
 			return isset($result['sucursalmoura']) ? $result['sucursalmoura'] : '032';
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -248,8 +187,7 @@ function guardar_log_archivosdiarios() {
 			return isset($result['razonsocial']) ? $result['razonsocial'] : '';
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -269,8 +207,7 @@ function guardar_log_archivosdiarios() {
 			return isset($result['nroreferencia']) ? $result['nroreferencia'] : '';
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -290,8 +227,7 @@ function guardar_log_archivosdiarios() {
 			return isset($result['cuit']) ? $result['cuit'] : '';
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -311,8 +247,7 @@ function guardar_log_archivosdiarios() {
 			return isset($result['id']) ? $result['id'] : '';
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -332,8 +267,7 @@ function guardar_log_archivosdiarios() {
 			return isset($result['id']) ? 1 : 0;
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -439,8 +373,7 @@ function guardar_log_archivosdiarios() {
 			return isset($result['nroSAP']) ? $result['nroSAP'] : '';
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -460,8 +393,7 @@ function guardar_log_archivosdiarios() {
 			return isset($result['liquidabind']) ? $result['liquidabind'] : '';
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -582,8 +514,7 @@ function guardar_log_archivosdiarios() {
 			return null;
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -633,8 +564,7 @@ function guardar_log_archivosdiarios() {
 			return 100;
             
         } catch (\PDOException $e) {
-            echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -683,8 +613,7 @@ function guardar_log_archivosdiarios() {
 			return 0;
             
         } catch (\PDOException $e) {
-			echo $e->getMessage();
-			throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -714,7 +643,6 @@ function guardar_log_archivosdiarios() {
 		$fecha = DateTime::createFromFormat($formatoEntrada, $fechaEntrada);
 		
 		if (!$fecha) {
-			echo "Fecha inválida proporcionada.";
 			throw new Exception("Fecha inválida proporcionada.");
 		}	
 		
@@ -737,7 +665,6 @@ function guardar_log_archivosdiarios() {
 		$fecha = DateTime::createFromFormat($formatoEntrada, $fechaEntrada);
 		
 		if (!$fecha) {
-			echo "Fecha inválida proporcionada.";
 			throw new Exception("Fecha inválida proporcionada.");
 		}	
 		
@@ -759,7 +686,6 @@ function guardar_log_archivosdiarios() {
 		$fecha = DateTime::createFromFormat($formatoEntrada, $fechaEntrada);
 		
 		if (!$fecha) {
-			echo "Fecha inválida proporcionada.";
 			throw new Exception("Fecha inválida proporcionada.");
 		}
 		//echo 'El dia ' . $fechaEntrada . 'tiene valor ' . $fecha->format('N') . ' \n';
@@ -780,7 +706,6 @@ function guardar_log_archivosdiarios() {
 		$fecha = DateTime::createFromFormat($formatoEntrada, $fechaEntrada);
 		
 		if (!$fecha) {
-			echo "Fecha inválida proporcionada.";
 			throw new Exception("Fecha inválida proporcionada.");
 		}
 		//echo 'El dia ' . $fechaEntrada . 'tiene valor ' . $fecha->format('N') . ' \n';
@@ -905,8 +830,7 @@ function guardar_log_archivosdiarios() {
 			];
 			
 		} catch (\PDOException $e) {
-			echo $e->getMessage();
-			throw new Exception($e->getMessage());
+			exit($e->getMessage());
 		}
 	}
 	
@@ -953,8 +877,7 @@ function guardar_log_archivosdiarios() {
 			return 0;			
 			
 		} catch (\PDOException $e) {
-			echo $e->getMessage();
-			throw new Exception($e->getMessage());
+			exit($e->getMessage());
 		}
 	}
 
@@ -1470,7 +1393,6 @@ function guardar_log_archivosdiarios() {
 			echo "Registro insertado correctamente.";
 		} else {
 			echo "Error al insertar registro: " . $stmt->errorInfo()[2];
-			throw new Exception("Error al insertar registro: " . $stmt->errorInfo()[2]);
 		}
 	}
 	
@@ -1503,7 +1425,6 @@ function guardar_log_archivosdiarios() {
 			echo "Registro Liquidaciones Archivo insertado correctamente.";
 		} else {
 			echo "Error al insertar registro: " . $stmt->errorInfo()[2];
-			throw new Exception("Error al insertar registro: " . $stmt->errorInfo()[2]);
 		}
 	}
 	
@@ -1713,8 +1634,7 @@ function guardar_log_archivosdiarios() {
 		if ($stmt->execute()) {
 			echo "Registro Detalle de Liquidacion insertado correctamente.\n";
 		} else {
-			echo  "Error al insertar registro: " . $stmt->errorInfo()[2];
-			throw new Exception( "Error al insertar registro: " . $stmt->errorInfo()[2]);
+			echo "Error al insertar registro: " . $stmt->errorInfo()[2];
 		}
 	}
 	
@@ -1757,8 +1677,7 @@ function guardar_log_archivosdiarios() {
 		if ($stmt->execute()) {
 			echo "Registro insertado correctamente.";
 		} else {
-			echo  "Error al insertar registro: " . $stmt->errorInfo()[2];
-			throw new Exception( "Error al insertar registro: " . $stmt->errorInfo()[2]);
+			echo "Error al insertar registro: " . $stmt->errorInfo()[2];
 		}
 	}
 	
@@ -1775,26 +1694,12 @@ function guardar_log_archivosdiarios() {
 		
 	}
 
-	
-
-
 	// --------------------------------------------------
 	// Código principal del procesamiento por lotes
 	// --------------------------------------------------
 	try {		
 		
-		if (isset($_GET['fecha'])) {
-			$fechaurl = $_GET['fecha'];
-		} elseif (isset($argv[1])) {
-			$fechaurl = $argv[1];
-		}
-		
-		if ($fechaurl === null) {
-			$errorMsg = "ERROR: No se proporcionó la fecha. Use ?fecha=... o como argumento en la CLI.\n";
-			echo $errorMsg; 
-			throw new \Exception($errorMsg);
-		}		
-		echo "INFO: Fecha de proceso determinada: " . $fechaurl . "\n\n";
+		$fechaurl=$_GET['fecha'];
 		
 		// 21/10 [Nico E] : Corrijo logica de calculo de extension del archivo BIND
 		// Definir el mapa de conversión de meses para la EXTENSIÓN
@@ -1831,7 +1736,8 @@ function guardar_log_archivosdiarios() {
 		$aExtensionBIND = substr($fechaExtensionBINDDDMMAA, 4, 2);           // Año (siempre dos caracteres)
 		// --- FIn de le logica de extension--
 
-				/////////////////////////////////////////////////////////////////////////////////////////////////
+		
+		/////////////////////////////////////////////////////////////////////////////////////////////////
 		// VENTAS
 		// Ruta al archivo de texto del BIND
 		if (esSabadoDomingoFeriadoDDMMAA($fechaurl) == 0 ){
@@ -1856,23 +1762,18 @@ function guardar_log_archivosdiarios() {
 		
 		
 		// Abrir el archivo en modo de solo lectura
-		$rutabase = getenv("PHP_PROCESS_PATH");
-
-		$directorioSalida = $rutabase . DIR_ARCHIVOS ;
-		$rutaArchivoCompleta = $directorioSalida . $nombreArchivo;
-		
-		$archivoBIND = fopen($rutaArchivoCompleta, 'r');
+		$archivoBIND = fopen(DIR_RAIZ . $nombreArchivo, 'r');
+	
 		// Verificar si se pudo abrir correctamente
 		if ($archivoBIND === false) {
-			echo "ERROR CRÍTICO: No se pudo abrir el archivo: " . $rutaArchivoCompleta .  "\n";
-			throw new Exception("ERROR CRÍTICO: No se pudo abrir el archivo: " . $rutaArchivoCompleta .  "\n");
+			die("No se pudo abrir el archivo: $nombreArchivo");
 		}
 	
 		// Leer la primera línea con el header y descartarla
 		fgets($archivoBIND);
 	
 		// Guardar en un archivo .txt por cada Division
-		$archivoMoura = fopen($directorioSalida . 'RecibosCredmoura' . DIVISION_BSAS . $fechaurl . '.txt', 'w');
+		$archivoMoura = fopen(DIR_RAIZ . 'RecibosCredmoura' . DIVISION_BSAS . $fechaurl . '.txt', 'w');
 		fwrite($archivoMoura, CABECERA_ARCHIVO_MOURA . PHP_EOL);	
 		
 		
@@ -1940,18 +1841,11 @@ function guardar_log_archivosdiarios() {
 		//descargarArchivo($nombreArchivo);
 		
 		// Abrir el archivo en modo de solo lectura
-		$rutabase = getenv("PHP_PROCESS_PATH");
-		
-
-		$directorioSalida = $rutabase . DIR_ARCHIVOS ;
-		$rutaArchivoCompleta = $directorioSalida . $nombreArchivo;
-		
-		$archivoBIND = fopen($rutaArchivoCompleta , 'r');
+		$archivoBIND = fopen(DIR_RAIZ . $nombreArchivo, 'r');
 	
 		// Verificar si se pudo abrir correctamente
 		if ($archivoBIND === false) {
-			echo ("No se pudo abrir el archivo: $nombreArchivo");
-			throw new Exception("No se pudo abrir el archivo: $nombreArchivo");
+			die("No se pudo abrir el archivo: $nombreArchivo");
 		}
 	
 		// Leer la primera línea con el header y descartarla
@@ -1972,14 +1866,11 @@ function guardar_log_archivosdiarios() {
 		
 		// Cerrar el archivo
 		fclose($archivoBIND);
-		exit(0);
-
+		
 	} catch (Exception $e) {
-		echo "\n\n--- ERROR DE PROCESAMIENTO FATAL EN ARCHIVOS DIARIOS ---\n";
-        echo "Mensaje: " . $e->getMessage() . "\n";
-		exit(1);
+		echo "Error: " . $e->getMessage();
 	}
 	// ------------------------------
 
 	// Registrar finalización del proceso
-	
+	echo "Fin del proceso de ejecución.";

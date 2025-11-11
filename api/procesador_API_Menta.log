@@ -1,44 +1,43 @@
 ============================================
-== PROCESO INICIADO: 2025-11-03 11:27:42 ==
+== PROCESO INICIADO: 2025-11-11 10:22:55 ==
 ============================================
 
-INFO: Procesando transacciones para la fecha: 011125
-INFO: Rango de búsqueda: 2025-11-01T00:00:00Z -> 2025-11-01T23:59:59Z
+INFO: Procesando transacciones para la fecha: 061125
+INFO: Rango de búsqueda: 2025-11-06T00:00:00Z -> 2025-11-06T23:59:59Z
 ============================================
 == INICIANDO PROCESO DE TRANSACCIONES MENTA ==
 ============================================
 
 --- FASE 1: Autenticación ---
-INFO: El token en caché ha expirado o es inválido.
-ACCION: Solicitando nuevo token de acceso a Menta...
-EXITO: Nuevo token obtenido y guardado en caché.
-       (Expira en 43200 segundos)
+INFO: Usando token válido desde caché.
 
 --- FASE 2: Petición de Transacciones ---
 INFO: Solicitando página 0...
-EXITO: Se obtuvieron 1 transacciones de la página 0.
-       (Página 1 de 1. Total acumulado: 1)
+EXITO: Se obtuvieron 12 transacciones de la página 0.
+       (Página 1 de 1. Total acumulado: 12)
 
---- FIN FASE 2: Se obtuvieron un total de 1 transacciones. ---
+--- FIN FASE 2: Se obtuvieron un total de 12 transacciones. ---
 
 --- FASE 3: Mapeo a Clases ---
-EXITO: Se mapearon 1 objetos Transaccion.
+EXITO: Se mapearon 12 objetos Transaccion.
 
 --- FASE 5: Generación de Archivos de Salida ---
 Cálculo de extensión de archivo...
-Fecha para Extensión calculada: 03-11-2025
-Extensión de archivo calculada: B03
+FechaProceso es día hábil. La extensión se basará en esta fecha.
+Fecha para Extensión calculada: 06-11-2025
+Extensión de archivo calculada: B06
 Generando archivo 'archivocuotas.xlsx'...
-Archivo 'archivocuotas.xlsx' generado con 1 registros.
+Archivo 'archivocuotas.xlsx' generado con 11 registros.
 
---- Lote #1 para Fecha Proceso 01-11-2025 ---
-    -> Generando archivo: archivos/A065BOTON011125.B03
-    -> Archivo generado con 1 registros de transacciones en status APPROVED.
+--- Lote #1 para Fecha Proceso 06-11-2025 ---
+    -> Generando archivo: /home/kotayk/Moura/api//archivos/A065BOTON061125.B06
+    -> Archivo generado con 11 registros de transacciones en status APPROVED.
+    -> Se descartaron 1 registros por transacciones con estados FAILED, REVERSED o REJECTED.
     -> Generando archivo A065DEVBOTON...
-    -> Archivo archivos/A065DEVBOTON011125.B03 generado con éxito.
+    -> Archivo /home/kotayk/Moura/api//archivos/A065DEVBOTON061125.B06 generado con éxito.
 
 
 ============================================
-== PROCESO FINALIZADO: 2025-11-03 11:27:43 ==
+== PROCESO FINALIZADO: 2025-11-11 10:22:56 ==
 == DURACIÓN TOTAL: 0.02 minutos ==
 ============================================

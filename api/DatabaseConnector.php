@@ -11,8 +11,10 @@ class DatabaseConnector {
                 $user,
                 $pass				
             );
+            $this->dbConnection->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+            $this->dbConnection->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_ASSOC);
         } catch (\PDOException $e) {
-            exit($e->getMessage());
+            throw new \Exception("Error al conectar con la base de datos: " . $e->getMessage());
         }
     }
 

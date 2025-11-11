@@ -17,62 +17,6 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-function guardar_log_liquidaciondiaria() {
-    global $AD_START_TIME;
-    $archivoLog = __DIR__ . '/liquidaciondiaria.log';
-    $contenidoLog = ob_get_contents();
-    ob_end_clean();
-
-	
-    $endTime = microtime(true); 
-    $durationSeconds = $endTime - ($AD_START_TIME ?? $endTime); 
-    $durationMinutes = round($durationSeconds / 60, 2); 
-    
-    $footerLog = "\n\n============================================\n";
-    $footerLog .= "== PROCESO FINALIZADO: " . (new DateTime())->format('Y-m-d H:i:s') . " ==\n";
-    $footerLog .= "== DURACIÓN TOTAL: $durationMinutes minutos ==\n";
-    $footerLog .= "============================================\n";
-
-    file_put_contents($archivoLog, $contenidoLog . $footerLog);
-	}
-
-	set_exception_handler(function (\Throwable $exception) {
-		// Usa 'echo' para que el mensaje se capture en el log (Output Buffer)
-		echo "\n\n--- ERROR NO CAPTURADO (DB/OTRO) ---\n";
-		echo "Tipo: " . get_class($exception) . "\n";
-		echo "Mensaje: " . $exception->getMessage() . "\n";
-		// Forzamos la salida con código 1
-		exit(1); 
-	});
-	
-	register_shutdown_function(function() {
-		$error = error_get_last();
-		// Solo actuamos si es un error fatal de PHP (E_ERROR, E_PARSE, E_CORE_ERROR, etc.)
-		if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
-			// Usa 'echo' para que el mensaje se capture en el log
-			echo "\n\n--- ERROR FATAL DE PHP DETECTADO ---\n";
-			echo "Tipo: " . $error['message'] . "\n";
-			echo "Línea: " . $error['line'] . " en " . $error['file'] . "\n";
-			// Si el script no ha terminado ya, forzamos la salida con código 1
-			if (ob_get_level() > 0) {
-				ob_end_flush();
-			}
-			exit(1);
-		}
-	});
-	
-	ob_start(); // Inicia el búfer
-	register_shutdown_function('guardar_log_liquidaciondiaria'); // Llama al guardado de log
-
-	// Capturamos el tiempo exacto de inicio en una variable global
-	$AD_START_TIME = microtime(true);
-
-	echo "============================================\n";
-	echo "== INICIANDO ARCHIVOS LIQUIDACION DIARIA: " . (new DateTime())->format('Y-m-d H:i:s') . " ==\n";
-	echo "============================================\n\n";
-	// =================================================================
-	// LOGGING FIN
-	// =================================================================
 
 
 	function obtenerTransaccionesPorLiquidar($dbConnection, $idpdv, $fecha)
@@ -106,7 +50,7 @@ function guardar_log_liquidaciondiaria() {
 			return $result;
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -138,7 +82,7 @@ function guardar_log_liquidaciondiaria() {
 			return $result;
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -170,7 +114,7 @@ function guardar_log_liquidaciondiaria() {
 			return $result;
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -193,7 +137,7 @@ function guardar_log_liquidaciondiaria() {
 			return $result;
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -215,7 +159,7 @@ function guardar_log_liquidaciondiaria() {
 			return $result;
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -236,7 +180,7 @@ function guardar_log_liquidaciondiaria() {
 			return $result;
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
@@ -269,7 +213,7 @@ function guardar_log_liquidaciondiaria() {
 			return $dbConnection->lastInsertId();
 	
 		} catch (PDOException $e) {
-			throw new Exception("Error al insertar la liquidación: " . $e->getMessage());
+			exit("Error al insertar la liquidación: " . $e->getMessage());
 		}
 	}
 	
@@ -288,7 +232,7 @@ function guardar_log_liquidaciondiaria() {
 			return $statement->rowCount();  // Retorna el número de filas afectadas
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
 	}
 	
@@ -318,7 +262,7 @@ function guardar_log_liquidaciondiaria() {
 			return $statement->rowCount();  // Retorna el número de filas afectadas
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
 	}
 	
@@ -338,7 +282,7 @@ function guardar_log_liquidaciondiaria() {
 			return  $statement->rowCount();  // Retorna el número de filas afectadas
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
 	}
 	
@@ -362,7 +306,7 @@ function guardar_log_liquidaciondiaria() {
 			return $statement->rowCount();  // Retorna el número de filas afectadas
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
 	}
 	
@@ -424,29 +368,17 @@ function guardar_log_liquidaciondiaria() {
 			return $result;
             
         } catch (\PDOException $e) {
-            throw new Exception($e->getMessage());
+            exit($e->getMessage());
         }    
     }
 	
-	
+
 // --------------------------------------------------
 	// Código principal del procesamiento por lotes
 	// --------------------------------------------------
 	try {
 		
-		if (isset($_GET['fecha'])) {
-			$fechaurl = $_GET['fecha'];
-		} elseif (isset($argv[1])) {
-			$fechaurl = $argv[1];
-		}
-		
-		if ($fechaurl === null) {
-			echo "ERROR: No se proporcionó la fecha. Use ?fecha=... o como argumento en la CLI.\n";
-			ob_end_flush(); 
-			ob_start();
-			throw new \Exception("ERROR: No se proporcionó la fecha. Use ?fecha=... o como argumento en la CLI.\n");
-		}
-		
+		$fechaurl=$_GET['fecha'];
 		
 		// Separar la fecha en día, mes y año
 		$d = substr($fechaurl, 0, 2);           // Día (siempre dos caracteres)
@@ -498,15 +430,9 @@ function guardar_log_liquidaciondiaria() {
 			}		
 		}
 		
-		$rutabase = getenv("PHP_PROCESS_PATH");
-		$directorioSalida = $rutabase . DIR_ARCHIVOS ;
-
 		// Guardar Liquidacion en un archivo .txt
-		$archivoMouraLiquidacion = fopen($directorioSalida . 'LiquidacionesBancos' . DIVISION_BSAS . $fechaurl . '.txt', 'w');
+		$archivoMouraLiquidacion = fopen(DIR_RAIZ . 'LiquidacionesBancos' . DIVISION_BSAS . $fechaurl . '.txt', 'w');
 		
-		if ($archivoMouraLiquidacion === false) {
-			throw new Exception("ERROR CRÍTICO: No se pudo abrir el archivo de liquidación: " . $directorioSalida . 'LiquidacionesBancos' . DIVISION_BSAS . $fechaurl . '.txt');
-		}
 		
 		$fechaLiquidacion = DateTime::createFromFormat('dmy', $fechaurl)->format('Y-m-d');
 		$lineasLiquidacion = obtenerLineasLiquidacion($dbConnection,$fechaLiquidacion);
@@ -541,17 +467,9 @@ function guardar_log_liquidaciondiaria() {
 			$sheet->setCellValue($col . '1', $titulo);
 			$col++;
 		}
-
-		$rutabase = getenv("PHP_PROCESS_PATH");
-
-		$directorioSalida = $rutabase . DIR_ARCHIVOS ;
 		
-		$archivoMouraLiquidacion = fopen($directorioSalida . 'LiquidacionesBancos' . DIVISION_BSAS . $fechaurl . '.txt', 'r');
+		$archivoMouraLiquidacion = fopen(DIR_RAIZ . 'LiquidacionesBancos' . DIVISION_BSAS . $fechaurl . '.txt', 'r');
 		$fila = 2;
-
-		if ($archivoMouraLiquidacion === false) {
-			throw new Exception("ERROR CRÍTICO: No se pudo abrir el archivo de liquidación: " . $directorioSalida . 'LiquidacionesBancos' . DIVISION_BSAS . $fechaurl . '.txt');
-		}
 		
 		while (($linea = fgets($archivoMouraLiquidacion)) !== false) {
 			$campos = str_split($linea, 32);
@@ -571,10 +489,9 @@ function guardar_log_liquidaciondiaria() {
 		//Se transfiere $liquidacion['montoMoura'] 
 		$respuestaTransf = 1;
 		echo "Se transfieren a Moura $" . $montoMoura;
-		exit(0);
+		
 	} catch (Exception $e) {
 		echo "Error: " . $e->getMessage();
-		exit(1);
 	}
 	// ------------------------------
 
