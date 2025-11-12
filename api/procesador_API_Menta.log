@@ -1,9 +1,9 @@
 ============================================
-== PROCESO INICIADO: 2025-11-11 10:22:55 ==
+== PROCESO INICIADO: 2025-11-11 19:09:02 ==
 ============================================
 
-INFO: Procesando transacciones para la fecha: 061125
-INFO: Rango de búsqueda: 2025-11-06T00:00:00Z -> 2025-11-06T23:59:59Z
+INFO: Procesando transacciones para la fecha: 101125
+INFO: Rango de búsqueda: 2025-11-10T00:00:00Z -> 2025-11-10T23:59:59Z
 ============================================
 == INICIANDO PROCESO DE TRANSACCIONES MENTA ==
 ============================================
@@ -13,31 +13,30 @@ INFO: Usando token válido desde caché.
 
 --- FASE 2: Petición de Transacciones ---
 INFO: Solicitando página 0...
-EXITO: Se obtuvieron 12 transacciones de la página 0.
-       (Página 1 de 1. Total acumulado: 12)
+EXITO: Se obtuvieron 23 transacciones de la página 0.
+       (Página 1 de 1. Total acumulado: 23)
 
---- FIN FASE 2: Se obtuvieron un total de 12 transacciones. ---
+--- FIN FASE 2: Se obtuvieron un total de 23 transacciones. ---
 
 --- FASE 3: Mapeo a Clases ---
-EXITO: Se mapearon 12 objetos Transaccion.
+EXITO: Se mapearon 23 objetos Transaccion.
 
 --- FASE 5: Generación de Archivos de Salida ---
 Cálculo de extensión de archivo...
 FechaProceso es día hábil. La extensión se basará en esta fecha.
-Fecha para Extensión calculada: 06-11-2025
-Extensión de archivo calculada: B06
+Fecha para Extensión calculada: 10-11-2025
+Extensión de archivo calculada: B10
 Generando archivo 'archivocuotas.xlsx'...
-Archivo 'archivocuotas.xlsx' generado con 11 registros.
+Archivo 'archivocuotas.xlsx' generado con 23 registros.
 
---- Lote #1 para Fecha Proceso 06-11-2025 ---
-    -> Generando archivo: /home/kotayk/Moura/api//archivos/A065BOTON061125.B06
-    -> Archivo generado con 11 registros de transacciones en status APPROVED.
-    -> Se descartaron 1 registros por transacciones con estados FAILED, REVERSED o REJECTED.
+--- Lote #1 para Fecha Proceso 10-11-2025 ---
+    -> Generando archivo: /home/u156146850/domains/cobrosflex.com.ar/public_html/TEST/api//archivos/A065BOTON101125.B10
+    -> Archivo generado con 23 registros de transacciones en status APPROVED.
     -> Generando archivo A065DEVBOTON...
-    -> Archivo /home/kotayk/Moura/api//archivos/A065DEVBOTON061125.B06 generado con éxito.
+    -> Archivo /home/u156146850/domains/cobrosflex.com.ar/public_html/TEST/api//archivos/A065DEVBOTON101125.B10 generado con éxito.
 
 
 ============================================
-== PROCESO FINALIZADO: 2025-11-11 10:22:56 ==
-== DURACIÓN TOTAL: 0.02 minutos ==
+== PROCESO FINALIZADO: 2025-11-11 19:09:03 ==
+== DURACIÓN TOTAL: 0.01 minutos ==
 ============================================

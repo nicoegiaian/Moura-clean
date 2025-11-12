@@ -1931,10 +1931,10 @@ function guardar_log_archivosdiarios() {
 		//DEVOLUCIONES
 		// Ruta al archivo de texto de DEVOLUCIONES del BIND
 		if (esSabadoDomingoFeriadoDDMMAA($fechaurl) == 0 ){
-			$nombreArchivo = 'A065DEVBOTON' . $a . (strlen($m) == 2 ? $m : '0' . $m) . $d . '.' . $m_EXTENSION . $d;
+			$nombreArchivo = 'A065DEVBOTON' . $d . (strlen($m) == 2 ? $m : '0' . $m) . $a . '.' . $m_EXTENSION . $d;
 		}
 		else {
-			$nombreArchivo = 'A065DEVBOTON' . $a . (strlen($m) == 2 ? $m : '0' . $m) . $d . '.' . $mExtensionBIND . $dExtensionBIND;
+			$nombreArchivo = 'A065DEVBOTON' . $d . (strlen($m) == 2 ? $m : '0' . $m) . $a . '.' . $mExtensionBIND . $dExtensionBIND;
 		}
 		
 		//descargarArchivo($nombreArchivo);

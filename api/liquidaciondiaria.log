@@ -1,10 +1,11 @@
 ============================================
-== INICIANDO ARCHIVOS LIQUIDACION DIARIA: 2025-11-11 10:21:48 ==
+== INICIANDO ARCHIVOS LIQUIDACION DIARIA: 2025-11-11 19:09:03 ==
 ============================================
 
-SQLSTATE[HY000] [1698] Access denied for user 'u156146850_moura_test'@'localhost'
+Se transfieren al PDV $0
+Se transfieren a Moura $619274.76
 
 ============================================
-== PROCESO FINALIZADO: 2025-11-11 10:21:48 ==
+== PROCESO FINALIZADO: 2025-11-11 19:09:03 ==
 == DURACIÓN TOTAL: 0 minutos ==
 ============================================
