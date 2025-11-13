@@ -129,9 +129,9 @@ try {
 }
 
 // --- Definiciones y Constantes ---
-$MENTA_USER = getenv('MENTA_USER');
-$MENTA_PASSWORD = getenv('MENTA_PASSWORD');
-$MENTA_API_URL = getenv('MENTA_API_URL');
+$MENTA_USER = (getenv('MENTA_USER') == "") ? "credimoura2025@gmail.com" : getenv('MENTA_USER');
+$MENTA_PASSWORD = (getenv('MENTA_PASSWORD') == "") ? "wCKNzbMzRz8F79x" : getenv('MENTA_PASSWORD');
+$MENTA_API_URL = (getenv('MENTA_API_URL') == "") ? 'https://api.menta.global/api/' : getenv('MENTA_API_URL');
 
 
 // Dónde guardaremos nuestro token temporalmente
@@ -140,6 +140,133 @@ define('TOKEN_CACHE_FILE', 'token.cache.json');
 // Declaramos las clases que usaremos (buenas prácticas)
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
+
+/**
+ * =========================================================================
+ * CLASE TRANSACCION
+ * =========================================================================
+ * Representa una transacción de la API de Menta con todos sus campos mapeados.
+ */
+class Transaccion {
+    // --- Campos Principales (Nivel 1) ---
+    public string $transaction_id;
+    public string $operation_id;
+    public string $status;
+    public string $datetime;
+    public float $gross_amount;
+    public string $currency;
+    public int $installments;
+    public string $payment_method;
+    public string $operation_type;
+    public ?string $merchant_id;
+    public ?string $terminal_id;
+
+    // --- Campos de 'operation_detail' (Aplanados) ---
+    public ?string $holder_name;
+    public ?string $holder_document;
+    public ?string $card_brand;
+    public ?string $card_mask;
+    public ?string $authorization_code;
+
+    // --- Campos de 'tax_info' (Aplanados) ---
+    public ?float $net_amount;
+    public ?string $payment_date;
+    
+    // --- CAMPOS NUEVOS (requeridos por transformarFila) ---
+    public int $operation_number;
+    public int $ref_operation_number;
+    public ?string $merchant_additional_info;
+    public float $tax_commission;
+    public float $tax_commission_vat;
+    public float $tax_financial_cost;
+    public float $tax_financial_cost_rate = 0.0;
+    public float $tax_financial_cost_vat;
+    public float $tax_financial_cost_vat_rate = 0.0;
+    
+    /**
+     * Método "Factory" para crear un objeto desde el array REAL de la API
+     * @param array $data Un elemento del array 'content' de la API
+     */
+    public static function fromArray(array $data): self {
+        $tx = new self();
+        
+        // --- Mapeo Nivel 1 (Campos Principales) ---
+        $tx->transaction_id = $data['transaction_id'] ?? 'N/A';
+        $tx->operation_id = $data['operation_id'] ?? 'N/A';
+        $tx->status = $data['status'] ?? 'UNKNOWN';
+        $tx->datetime = $data['datetime'] ?? '';
+        $tx->gross_amount = (float) ($data['gross_amount'] ?? 0.0);
+        $tx->currency = $data['currency'] ?? 'ARS';
+        $tx->installments = (int) ($data['installments'] ?? 0);
+        $tx->payment_method = $data['payment_method'] ?? 'UNKNOWN';
+        $tx->operation_type = $data['operation_type'] ?? 'UNKNOWN';
+        $tx->merchant_id = $data['merchant_id'] ?? null;
+        $tx->terminal_id = $data['terminal_id'] ?? null;
+
+        // --- Mapeo Nivel 2 (Datos Anidados) ---
+        $op_detail = $data['operation_detail'] ?? [];
+        $tax_info = $data['tax_info'] ?? [];
+        $card_info = $op_detail['card'] ?? [];
+
+        $tx->holder_name = $op_detail['holder_name'] ?? null;
+        $tx->holder_document = $op_detail['holder_document'] ?? null;
+        $tx->authorization_code = $op_detail['authorization_code'] ?? null;
+        $tx->card_brand = $card_info['card_brand'] ?? null;
+        $tx->card_mask = $card_info['card_mask'] ?? null;
+        $tx->net_amount = (float) ($tax_info['net_amount'] ?? 0.0);
+        
+        // CALCULAR FECHA DE PAGO según reglas de negocio
+        $paymentMethod = $data['payment_method'] ?? 'UNKNOWN';
+        $installments = (int)($data['installments'] ?? 1);
+        $datetime = $data['datetime'] ?? '';
+        
+        $tx->payment_date = calcularFechaPago($paymentMethod, $installments, $datetime);
+
+        echo "INFO: TX {$tx->operation_id}: {$paymentMethod} {$installments}x | Compra: {$tx->datetime} → Pago: {$tx->payment_date}\n";
+        
+        // --- MAPEANDO LOS CAMPOS NUEVOS ---
+        $tx->operation_number = (int) ($data['operation_number'] ?? 0);
+        $tx->ref_operation_number = (int) ($data['ref_operation_number'] ?? 0);
+        $tx->merchant_additional_info = $data['merchant_additional_info'] ?? null;
+        $tx->tax_commission = 0.0;
+        $tx->tax_commission_vat = 0.0;
+        $tx->tax_financial_cost = 0.0;
+        $tx->tax_financial_cost_vat = 0.0;
+        
+        $tax_breakdown = $tax_info['tax_breakdown'] ?? [];
+
+        if (is_array($tax_breakdown)) {
+            foreach ($tax_breakdown as $tax) {
+                $tax_code = $tax['tax_code'] ?? '';
+                $amount = (float) ($tax['amount'] ?? 0.0);
+                
+                switch ($tax_code) {
+                    case 'ACQUIRER_TO_CUSTOMER_COMMISSION':
+                        $tx->tax_commission = $amount;
+                        break;
+                    case 'ACQUIRER_TO_CUSTOMER_COMMISSION_VAT_TAX':
+                        $tx->tax_commission_vat = $amount;
+                        break;
+                    case 'FINANCIAL_COST':
+                        $tx->tax_financial_cost = $amount;
+                        $tx->tax_financial_cost_rate = (float) ($tax['rate'] ?? 0.0);
+                        break;
+                    case 'FINANCIAL_COST_VAT_TAX':
+                        $tx->tax_financial_cost_vat = $amount;
+                        $rate = (float) ($tax['rate'] ?? 0.0);
+                        if ($rate == 21.0) {
+                            $tx->tax_financial_cost_vat_rate = 10.5;
+                        } else {
+                            $tx->tax_financial_cost_vat_rate = (float) ($tax['rate'] ?? 0.0);
+                        }
+                        break;
+                }
+            }
+        }
+        return $tx;
+    }
+}
 
 // --- INICIO DEL PROCESO ---
 
@@ -151,6 +278,139 @@ echo "============================================\n\n";
 $accessToken = null;
 $transaccionesObtenidas = [];
 $transaccionesMapeadas = [];
+
+/**
+ * =========================================================================
+ * FUNCIÓN: esDiaHabil
+ * =========================================================================
+ * Verifica si una fecha dada es un día hábil.
+ * 
+ * Día hábil = Lunes a Viernes (ISO 1-5) que NO esté en FERIADOS
+ * 
+ * @param DateTime $fecha La fecha a verificar
+ * @return bool true si es día hábil, false si no
+ */
+function esDiaHabil(DateTime $fecha): bool {
+    // 1. Verificar si es fin de semana (Sábado=6, Domingo=7)
+    $diaSemana = (int)$fecha->format('N');
+
+    
+    if ($diaSemana >= 6) {
+        return false; // Es fin de semana
+    }
+    
+    // 2. Verificar si está en la lista de FERIADOS
+    // Generamos todos los formatos posibles de la fecha
+    $f_ymd = $fecha->format('ymd');    // AAMMDD (6 dígitos)
+    $f_Ymd = $fecha->format('Ymd');    // AAAAMMDD (8 dígitos)
+    $f_dmy = $fecha->format('dmy');    // DDMMAA (6 dígitos)
+    $f_dmY = $fecha->format('dmY');    // DDMMAAAA (8 dígitos)
+    
+    $esFeriado = in_array($f_ymd, FERIADOS, true) || 
+    in_array($f_Ymd, FERIADOS, true) || 
+    in_array($f_dmy, FERIADOS, true) || 
+    in_array($f_dmY, FERIADOS, true);
+    
+    if ($esFeriado) {
+        return false; // Es feriado
+    }
+    
+    return true; // Es día hábil
+}
+
+/**
+ * =========================================================================
+ * FUNCIÓN: calcularFechaPago
+ * =========================================================================
+ * Calcula la fecha de pago basándose en:
+ * - El método de pago (DEBIT, CREDIT, QR, PREPAID)
+ * - La cantidad de cuotas (1, 3, 6)
+ * - La fecha de la transacción
+ * 
+ * Las reglas de negocio son:
+ * - DEBIT: 2 días hábiles
+ * - QR: 2 días hábiles
+ * - CREDIT 1 cuota: 8 días hábiles
+ * - CREDIT 3 o 6 cuotas: 10 días hábiles (MiPyme)
+ * - PREPAID: 8 días hábiles (solo maneja 1 cuota)
+ * 
+ * IMPORTANTE: El conteo de días empieza desde el día siguiente a la transacción.
+ * Ejemplo: Compra el Lunes → Martes cuenta como día 1.
+ * Si la transacción cae en fin de semana/feriado, se empieza a contar desde 
+ * el siguiente día hábil.
+ * 
+ * @param string $paymentMethod El método de pago (DEBIT, CREDIT, QR, PREPAID)
+ * @param int $installments Cantidad de cuotas (1, 3, 6)
+ * @param string $datetime Fecha/hora de la transacción (formato ISO 8601)
+ * @return string|null Fecha de pago en formato 'YYYY-MM-DD' o null si hay error
+ */
+function calcularFechaPago(string $paymentMethod, int $installments, string $datetime): ?string {
+    
+    // 1. Parsear la fecha de la transacción
+    try {
+        $fechaTransaccion = new DateTime($datetime);
+    } catch (Exception $e) {
+        // Si hay error al parsear la fecha, retornamos null
+        return null;
+    }
+    
+    // 2. Determinar cuántos días hábiles necesitamos agregar según las reglas
+    $diasHabilesRequeridos = 0;
+    
+    switch ($paymentMethod) {
+        case 'DEBIT':
+            $diasHabilesRequeridos = DIAS_HABILES_DEBIT;
+            break;
+            
+        case 'QR':
+            $diasHabilesRequeridos = DIAS_HABILES_QR;
+            break;
+            
+        case 'CREDIT':
+            if ($installments === 1) {
+                $diasHabilesRequeridos = DIAS_HABILES_CREDIT_1_CUOTA;
+            } else {
+                // Para 3 o 6 cuotas (MiPyme)
+                $diasHabilesRequeridos = DIAS_HABILES_CREDIT_CUOTAS;
+            }
+            break;
+            
+        case 'PREPAID':
+            // PREPAID solo maneja 1 cuota
+            $diasHabilesRequeridos = DIAS_HABILES_PREPAID_1_CUOTA;
+            break;
+            
+        default:
+            // Método de pago desconocido, retornamos null
+            return null;
+    }
+    
+    // 3. Calcular la fecha de pago sumando los días hábiles
+    $fechaPago = clone $fechaTransaccion;
+    
+    // PASO 1: Si la transacción se hizo en día NO hábil, 
+    // se considera como realizada el siguiente día hábil
+    if (!esDiaHabil($fechaPago)) {
+        do {
+            $fechaPago->modify('+1 day');
+        } while (!esDiaHabil($fechaPago));
+    }
+    
+    // PASO 2: Ahora desde este día hábil, contamos los días hábiles requeridos
+    $diasHabilesContados = 0;
+    while ($diasHabilesContados < $diasHabilesRequeridos) {
+        // Avanzamos un día
+        $fechaPago->modify('+1 day');
+        
+        // Si es día hábil, lo contamos
+        if (esDiaHabil($fechaPago)) {
+            $diasHabilesContados++;
+        }
+    }
+    
+    // 4. Retornar la fecha en formato YYYY-MM-DD
+    return $fechaPago->format('Y-m-d');
+}
 
 
 /**
@@ -181,7 +441,6 @@ function fase1_autenticacion() {
 
     // 1.3: Si no hay token o expiró, pedimos uno nuevo
     echo "ACCION: Solicitando nuevo token de acceso a Menta...\n";
-    
     $client = new Client([
         'base_uri' => $MENTA_API_URL,
         'timeout'  => 10.0, // Timeout de 10 segundos
@@ -318,17 +577,35 @@ function fase2_peticion_transacciones() {
                 throw new \Exception($errorMessage);
             }
 
-        } catch (GuzzleException $e) {
+        } catch (RequestException $e) {
+            // Errores HTTP (4xx, 5xx) - tiene hasResponse()
             echo "ERROR CRITICO: Falla en la petición de transacciones.\n";
             echo "Mensaje: " . $e->getMessage() . "\n";
+            
             if ($e->hasResponse()) {
-                // Si el error es 401, el token expiró. 
-                // Una lógica más avanzada re-intentaría la Fase 1 aquí.
-                echo "Respuesta de la API: " . $e->getResponse()->getBody()->getContents() . "\n";
+                $statusCode = $e->getResponse()->getStatusCode();
+                $responseBody = $e->getResponse()->getBody()->getContents();
+                
+                echo "Código HTTP: $statusCode\n";
+                echo "Respuesta de la API: $responseBody\n";
+                
+                // Si el error es 401, el token expiró
+                if ($statusCode === 401) {
+                    echo "ADVERTENCIA: Token expirado. Considere reintentar la autenticación.\n";
+                }
             }
             ob_end_flush(); 
             ob_start();
-            throw new \Exception("Fallo en la comunicación con la API de Menta.", 0, $e);        }
+            throw new \Exception("Fallo en la petición de transacciones (HTTP error).", 0, $e);
+            
+        } catch (GuzzleException $e) {
+            // Otros errores de Guzzle (timeout, DNS, etc.)
+            echo "ERROR CRITICO: Error de red o conexión.\n";
+            echo "Mensaje: " . $e->getMessage() . "\n";
+            ob_end_flush(); 
+            ob_start();
+            throw new \Exception("Fallo en la comunicación con la API de Menta.", 0, $e);
+        }
 
     } while ($paginaActual < $paginasTotales); // Continuamos mientras haya páginas por pedir
 
@@ -341,128 +618,7 @@ function fase2_peticion_transacciones() {
  * =========================================================================
  * Objetivo: Convertir el array de datos crudos (JSON) en objetos PHP
  * tipados (nuestra clase 'Transaccion').
- * Si en el futuro decides que sí necesitas el customer_id en tu archivo de texto, el proceso sería:
-*       Añadir public ?string $customer_id; a la class Transaccion.
-*       Añadir $tx->customer_id = $data['customer_id'] ?? null; al fromArray.
-*       Modificar transformarFila y ensamblarLinea para usar ese nuevo campo.
  */
-
-// Definimos la clase que representará nuestros datos
-class Transaccion {
-    // --- Campos Principales (Nivel 1) ---
-    public string $transaction_id;
-    public string $operation_id;
-    public string $status;
-    public string $datetime;
-    public float $gross_amount;
-    public string $currency;
-    public int $installments;
-    public string $payment_method;
-    public string $operation_type;
-    public ?string $merchant_id;
-    public ?string $terminal_id;
-
-    // --- Campos de 'operation_detail' (Aplanados) ---
-    public ?string $holder_name;
-    public ?string $holder_document;
-    public ?string $card_brand;
-    public ?string $card_mask;
-    public ?string $authorization_code;
-
-    // --- Campos de 'tax_info' (Aplanados) ---
-    public ?float $net_amount;
-    public ?string $payment_date;
-    
-    // --- CAMPOS NUEVOS (requeridos por transformarFila) ---
-    public int $operation_number; // Para el campo 'TRANSACCION'
-    public int $ref_operation_number; //solo con datos para ANNULMENTS o REFUNDS donde coincidra con el operation_number de un PAYMENT / APPROVED
-    public ?string $merchant_additional_info; // Para el campo 'N_COMERCIO'
-    public float $tax_commission;
-    public float $tax_commission_vat;
-    public float $tax_financial_cost;
-    public float $tax_financial_cost_rate = 0.0;
-    public float $tax_financial_cost_vat;
-    public float $tax_financial_cost_vat_rate = 0.0;
-    
-    /**
-     * Método "Factory" para crear un objeto desde el array REAL de la API
-     * @param array $data Un elemento del array 'content' de la API
-     */
-    public static function fromArray(array $data): self {
-        $tx = new self();
-        
-        // --- Mapeo Nivel 1 (Campos Principales) ---
-        $tx->transaction_id = $data['transaction_id'] ?? 'N/A';
-        $tx->operation_id = $data['operation_id'] ?? 'N/A';
-        $tx->status = $data['status'] ?? 'UNKNOWN';
-        $tx->datetime = $data['datetime'] ?? '';
-        $tx->gross_amount = (float) ($data['gross_amount'] ?? 0.0);
-        $tx->currency = $data['currency'] ?? 'ARS';
-        $tx->installments = (int) ($data['installments'] ?? 0);
-        $tx->payment_method = $data['payment_method'] ?? 'UNKNOWN';
-        $tx->operation_type = $data['operation_type'] ?? 'UNKNOWN';
-        $tx->merchant_id = $data['merchant_id'] ?? null;
-        $tx->terminal_id = $data['terminal_id'] ?? null;
-
-        // --- Mapeo Nivel 2 (Datos Anidados) ---
-        $op_detail = $data['operation_detail'] ?? [];
-        $tax_info = $data['tax_info'] ?? [];
-        $card_info = $op_detail['card'] ?? [];
-
-        $tx->holder_name = $op_detail['holder_name'] ?? null;
-        $tx->holder_document = $op_detail['holder_document'] ?? null;
-        $tx->authorization_code = $op_detail['authorization_code'] ?? null;
-        $tx->card_brand = $card_info['card_brand'] ?? null;
-        $tx->card_mask = $card_info['card_mask'] ?? null;
-        $tx->net_amount = (float) ($tax_info['net_amount'] ?? 0.0);
-        $tx->payment_date = $tax_info['payment_date'] ?? null;
-        
-        // --- MAPEANDO LOS CAMPOS NUEVOS ---
-        $tx->operation_number = (int) ($data['operation_number'] ?? 0);
-        $tx->ref_operation_number = (int) ($data['ref_operation_number'] ?? 0);
-        $tx->merchant_additional_info = $data['merchant_additional_info'] ?? null;
-        $tx->tax_commission = 0.0;
-        $tx->tax_commission_vat = 0.0;
-        $tx->tax_financial_cost = 0.0;
-        $tx->tax_financial_cost_vat = 0.0;
-        
-        $tax_breakdown = $tax_info['tax_breakdown'] ?? [];
-
-        if (is_array($tax_breakdown)) {
-            foreach ($tax_breakdown as $tax) {
-                $tax_code = $tax['tax_code'] ?? '';
-                $amount = (float) ($tax['amount'] ?? 0.0);
-                
-                switch ($tax_code) {
-                    case 'ACQUIRER_TO_CUSTOMER_COMMISSION':
-                        $tx->tax_commission = $amount;
-                        break;
-                    case 'ACQUIRER_TO_CUSTOMER_COMMISSION_VAT_TAX':
-                        $tx->tax_commission_vat = $amount;
-                        break;
-                    case 'FINANCIAL_COST':
-                        $tx->tax_financial_cost = $amount;
-                        $tx->tax_financial_cost_rate = (float) ($tax['rate'] ?? 0.0);
-                        break;
-                    case 'FINANCIAL_COST_VAT_TAX':
-                        $tx->tax_financial_cost_vat = $amount;
-                        $rate = (float) ($tax['rate'] ?? 0.0);
-                        if ($rate == 21.0) {
-                            // RECALCULAMOS: Usamos 10.5% de la base del FINANCIAL_COST
-                            // (Asumimos que $tx->tax_financial_cost ya se asignó en el loop)
-                            $tx->tax_financial_cost_vat_rate = 10.5;
-                        } else {
-                            // Si es 10.5 o 0, usamos el monto que vino de la API
-                            $tx->tax_financial_cost_vat_rate = (float) ($tax['rate'] ?? 0.0);;
-                        }
-                        
-                        break;
-                }
-            }
-        }
-        return $tx;
-    }
-}
 
 function fase3_mapeo_clases() {
     global $transaccionesObtenidas, $transaccionesMapeadas;
@@ -625,9 +781,11 @@ function transformarFila(Transaccion $tx): array
     $rateFinCost = $tx->tax_financial_cost_rate * 100;
     $filaTransformada['TAX_FINANCIAL_COST_RATE'] = str_pad($rateFinCost, 11, '0', STR_PAD_LEFT); // 549-559
    
+
     // Guardamos el RATE del IVA (no el monto) (ej: 21.0% -> 2100)
     $rateFinCostVat = $tx->tax_financial_cost_vat_rate * 100;
     $filaTransformada['TAX_FINANCIAL_COST_VAT_RATE'] = str_pad($rateFinCostVat, 11, '0', STR_PAD_LEFT); // 560-570
+
     
     $filaTransformada['RELLENO_571_594'] = str_pad('', 24, ' '); // 571-594
     $filaTransformada['ID CAMPAÑA'] = str_pad('', 8, '0'); // 595-602
