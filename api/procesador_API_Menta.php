@@ -49,6 +49,10 @@ define('DIR_OUTPUT', getenv('PHP_PROCESS_PATH') ?: __DIR__);
 require __DIR__ . '/vendor/autoload.php';
 require_once 'constants.php';
 
+define('MAPA_MESES', [
+    1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6',
+    7 => '7', 8 => '8', 9 => '9', 10 => 'A', 11 => 'B', 12 => 'C'
+]);
 // "Alias" para las clases de PhpSpreadsheet que usaremos
 use PhpOffice\PhpSpreadsheet\Spreadsheet; 
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -279,6 +283,53 @@ $accessToken = null;
 $transaccionesObtenidas = [];
 $transaccionesMapeadas = [];
 
+
+/**
+ * Calcula la extensión del archivo (Mes/Día) basándose en la fecha de proceso, 
+ * avanzando al siguiente día hábil si es necesario.
+ * @param DateTime $fechaProceso
+ * @return string La extensión calculada (ej. 'B11')
+ */
+function calcularExtension(DateTime $fechaProceso): string 
+{
+    // Usamos la constante global
+    $mapaMeses = MAPA_MESES; 
+
+    // --- LÓGICA DE DETECCIÓN DE FECHAS NO HÁBILES ---
+    $esFeriado = in_array($fechaProceso->format('ymd'), FERIADOS, true) || 
+                 in_array($fechaProceso->format('Ymd'), FERIADOS, true) || 
+                 in_array($fechaProceso->format('dmy'), FERIADOS, true) || 
+                 in_array($fechaProceso->format('dmY'), FERIADOS, true);
+                 
+    $diaDeLaSemana = (int)$fechaProceso->format('N');
+    $esFinDeSemana = ($diaDeLaSemana >= 6);
+
+    $fechaParaExtension = clone $fechaProceso;
+
+    if ($esFinDeSemana || $esFeriado) {
+        while (true) {
+            $fechaParaExtension->modify('+1 day');
+            $diaLoop = (int)$fechaParaExtension->format('N');
+            if ($diaLoop >= 6) continue; // Si es Sábado/Domingo, salta al siguiente
+
+            // Chequeo de feriados para la fecha avanzada
+            $esFeriadoLoop = in_array($fechaParaExtension->format('ymd'), FERIADOS, true) || 
+                             in_array($fechaParaExtension->format('Ymd'), FERIADOS, true) || 
+                             in_array($fechaParaExtension->format('dmy'), FERIADOS, true) || 
+                             in_array($fechaParaExtension->format('dmY'), FERIADOS, true);
+
+            if (!$esFeriadoLoop) break; // Si es día hábil y no feriado, rompemos el bucle
+        }
+    }
+    // --- FIN LÓGICA DE DÍA HÁBIL ---
+
+    // Construcción final de la extensión
+    $mesNum = (int)$fechaParaExtension->format('n');
+    $diaStr = $fechaParaExtension->format('d');
+    
+    // Retorna (Mes de Extensión + Día)
+    return $mapaMeses[$mesNum] . $diaStr;
+}
 /**
  * =========================================================================
  * FUNCIÓN: esDiaHabil
@@ -829,6 +880,65 @@ function ensamblarLinea(array $filaProcesada): string
     return $lineaFinal;
 }
 
+function generarArchivosVacios() {
+    global $fechaProceso; 
+
+    // Replicamos la lógica de cálculo de la extensión, ya que fase5 no se ejecutó.
+    // Esta lógica ya está duplicada y debe ser extraída en una función auxiliar si fuera posible.
+    // Por ahora, la replicaremos aquí o asumimos que las variables globales necesarias están disponibles.
+    
+    // --- Lógica simplificada de FECHA / EXTENSION ---
+    // Usaremos valores fijos de prueba o la lógica que ya tenías en Fase 5
+    // Para no duplicar el código complejo, usaremos las mismas variables globales:
+    
+    // Suponiendo que la lógica de extensión está lista (debe estar en el global scope)
+    $extensionCalculada = calcularExtension($fechaProceso);
+    echo "Extensión de archivo calculada: " . $extensionCalculada . "\n";
+    $header = "HEADER" . $fechaProceso->format('Ymd') . $fechaProceso->format('Ymd') . str_pad('1', 5, '0', STR_PAD_LEFT); // Header para A065BOTON
+    $trailer = "TRAILER0000000000000000000"; // Trailer con 0s
+
+    $directorioSalida = DIR_OUTPUT . '/archivos';
+    if (!is_dir($directorioSalida)) {
+        mkdir($directorioSalida, 0777, true);
+    }
+    
+    $fechaDMMYY = $fechaProceso->format('dmy');
+    
+    // 1. Archivo de Lote (A065BOTON...)
+    $nombreArchivoBase = 'A065BOTON' . $fechaDMMYY;
+    $rutaLote = $directorioSalida . '/' . $nombreArchivoBase . '.' . $extensionCalculada;
+    
+    $archivoSalida = fopen($rutaLote, 'w');
+    if ($archivoSalida) {
+        fwrite($archivoSalida, $header . "\n");
+        fwrite($archivoSalida, $trailer . "\n"); // Escribir TRAILER vacío
+        fclose($archivoSalida); 
+        echo "    -> Archivo $rutaLote generado vacío (HEADER/TRAILER).\n";
+    }
+
+    // 2. Archivo de Devoluciones (A065DEVBOTON...)
+    $nombreArchivoBase_DEV = 'A065DEVBOTON' . $fechaDMMYY;
+    $rutaDevoluciones = $directorioSalida . '/' . $nombreArchivoBase_DEV . '.' . $extensionCalculada;
+
+    $archivoSalida_DEV = fopen($rutaDevoluciones, 'w');
+    if ($archivoSalida_DEV) {
+        // NOTA: Replicar el HEADER/TRAILER que genera tu lógica existente para DEVOLUCIONES
+        $header_DEV = "HEADER" . $fechaProceso->format('dmy'); // Usar formato 'dmy' si es el esperado
+        $trailer_DEV = "TRAILER00000"; // Trailer de devoluciones
+        
+        fwrite($archivoSalida_DEV, $header_DEV . "\n");
+        fwrite($archivoSalida_DEV, $trailer_DEV . "\n");
+        fclose($archivoSalida_DEV);
+        echo "    -> Archivo $rutaDevoluciones generado vacío (HEADER/TRAILER).\n";
+    }
+
+    // 3. Archivo archivocuotas.xlsx (Necesario para el inicio de archivosdiarios.php)
+    $spreadsheetCuotas = new Spreadsheet();
+    $writer = new Xlsx($spreadsheetCuotas);
+    $rutaArchivoCuotas = DIR_OUTPUT . '/archivocuotas.xlsx';
+    $writer->save($rutaArchivoCuotas);
+    echo "    -> Archivo 'archivocuotas.xlsx' generado vacío.\n";
+    }
 /**
  * =========================================================================
  * FASE 5: GENERACIÓN DE ARCHIVOS DE SALIDA (Portado de procesador.php)
@@ -842,57 +952,7 @@ function fase5_generar_archivos() {
 
     // --- 1. CÁLCULO DE EXTENSIÓN DE ARCHIVO (Lógica de procesador.php) ---
     echo "Cálculo de extensión de archivo...\n";
-    $mapaMeses = [
-        1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6',
-        7 => '7', 8 => '8', 9 => '9', 10 => 'A', 11 => 'B', 12 => 'C'
-    ];
-
-    // Formatear la fecha de proceso en todos los formatos que usa FERIADOS
-    $f_ymd = $fechaProceso->format('ymd');
-    $f_Ymd = $fechaProceso->format('Ymd');
-    $f_dmy = $fechaProceso->format('dmy');
-    $f_dmY = $fechaProceso->format('dmY');
-
-    // Chequeamos si la FechaProceso es feriado usando la constante FERIADOS
-    $esFeriado = in_array($f_ymd, FERIADOS, true) || 
-                 in_array($f_Ymd, FERIADOS, true) || 
-                 in_array($f_dmy, FERIADOS, true) || 
-                 in_array($f_dmY, FERIADOS, true);
-                 
-    $diaDeLaSemana = (int)$fechaProceso->format('N');
-    $esFinDeSemana = ($diaDeLaSemana >= 6);
-
-    $fechaParaExtension = clone $fechaProceso;
-
-    if ($esFinDeSemana || $esFeriado) {
-        //if ($esFinDeSemana) echo "FechaProceso es fin de semana. Calculando siguiente día hábil...\n";
-        //else echo "FechaProceso es feriado. Calculando siguiente día hábil...\n";
-        
-        while (true) {
-            $fechaParaExtension->modify('+1 day');
-            $diaLoop = (int)$fechaParaExtension->format('N');
-            if ($diaLoop >= 6) continue;
-
-            $f_ymd_loop = $fechaParaExtension->format('ymd');
-            $f_Ymd_loop = $fechaParaExtension->format('Ymd');
-            $f_dmy_loop = $fechaParaExtension->format('dmy');
-            $f_dmY_loop = $fechaParaExtension->format('dmY');
-            
-            $esFeriadoLoop = in_array($f_ymd_loop, FERIADOS, true) || 
-                             in_array($f_Ymd_loop, FERIADOS, true) || 
-                             in_array($f_dmy_loop, FERIADOS, true) || 
-                             in_array($f_dmY_loop, FERIADOS, true);
-
-            if (!$esFeriadoLoop) break;
-        }
-    } else {
-         echo "FechaProceso es día hábil. La extensión se basará en esta fecha.\n";
-    }
-
-    echo "Fecha para Extensión calculada: " . $fechaParaExtension->format('d-m-Y') . "\n";
-    $mesNum = (int)$fechaParaExtension->format('n');
-    $diaStr = $fechaParaExtension->format('d');
-    $extensionCalculada = $mapaMeses[$mesNum] . $diaStr;
+    $extensionCalculada = calcularExtension($fechaProceso);
     echo "Extensión de archivo calculada: " . $extensionCalculada . "\n";
 
     // --- 2. GENERACIÓN DE 'archivocuotas.xlsx' ---
@@ -1056,14 +1116,27 @@ try {
     fase2_peticion_transacciones();
     fase3_mapeo_clases();
     
-    // Solo continuamos si las fases de API y mapeo fueron exitosas
+    echo "\n--- FASE 4: Control de Archivos ---\n";
+
     if (!empty($transaccionesMapeadas)) {
+        // Opción A: Hay transacciones mapeadas. Procedemos al procesamiento completo.
+        echo "INFO: Transacciones APPROVED encontradas. Generando archivos con contenido...\n";
         fase5_generar_archivos();
+        
     } elseif (empty($transaccionesObtenidas)) {
-        echo "\n--- No se obtuvieron transacciones de la API. No se generarán archivos. ---\n";
+        // Opción B: No se obtuvieron transacciones de la API. (No hay ventas ni fallos)
+        echo "INFO: No se encontraron transacciones en el rango de fecha. Generando archivos con HEADER/TRAILER vacíos.\n";
+        
+        // **NUEVA LLAMADA:** Llamamos a una función auxiliar para generar solo los archivos vacíos.
+        generarArchivosVacios();
+
     } else {
-        echo "\n--- El mapeo de transacciones falló. No se generarán archivos. ---\n";
+        // Opción C: Transacciones obtenidas, pero todas descartadas (FALLO/REVERSO). Generamos vacíos.
+        echo "INFO: Transacciones obtenidas, pero ninguna APPROVED. Generando archivos con HEADER/TRAILER vacíos.\n";
+        generarArchivosVacios();
     }
+    
+    echo "\n<info>Proceso finalizado con éxito (Status 0).</info>\n";
     exit(0);
 
 } catch (Exception $e) {

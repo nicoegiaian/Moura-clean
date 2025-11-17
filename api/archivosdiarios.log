@@ -1,23 +1,16 @@
 ============================================
-== INICIANDO ARCHIVOS DIARIOS: 2025-11-12 16:41:04 ==
+== INICIANDO ARCHIVOS DIARIOS: 2025-11-17 16:07:49 ==
 ============================================
 
-INFO: Fecha de proceso determinada: 111125
+INFO: Fecha de proceso determinada: 161125
 
-Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registro insertado correctamente.2025-11-11 (2) TuesdayRegistro Detalle de Liquidacion insertado correctamente.
-Registro Liquidaciones Archivo insertado correctamente.Registros generados correctamente en el archivo 'Moura.txt'.
-Registros de devoluciones insertados correctamente en BD
+
+
+--- ERROR DE PROCESAMIENTO FATAL EN ARCHIVOS DIARIOS ---
+Mensaje: Error al conectar con la base de datos: SQLSTATE[HY000] [1698] Access denied for user 'u156146850_moura'@'localhost'
 
 
 ============================================
-== PROCESO FINALIZADO: 2025-11-12 16:41:04 ==
+== PROCESO FINALIZADO: 2025-11-17 16:07:50 ==
 == DURACIÓN TOTAL: 0 minutos ==
 ============================================
