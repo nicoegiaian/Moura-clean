@@ -1298,7 +1298,7 @@ function guardar_log_archivosdiarios() {
 		$linea3 .= str_pad('', 32, ' ', STR_PAD_RIGHT);											
 		
 		// Valor a acreditar	
-		$linea1 .= str_pad(str_replace(['$', ' ', '.'], '', $datos['importePrimerVencimiento']), 32, ' ', STR_PAD_LEFT);							
+		$linea1 .= str_pad(str_replace(['$', ' ', '.'], '', $datos['importeCheque']), 32, ' ', STR_PAD_LEFT);							
 		$linea2 .= str_pad(str_replace(['$', ' ', '.'], '', $datos['importeAcreditadoMoura']), 32, ' ', STR_PAD_LEFT);							
 		$linea3 .= str_pad(str_replace(['$', ' ', '.'], '', $datos['subsidioMoura']), 32, ' ', STR_PAD_LEFT);	
 
