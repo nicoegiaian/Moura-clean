@@ -227,7 +227,7 @@ class Transaccion {
         
         $tx->payment_date = calcularFechaPago($paymentMethod, $installments, $datetime);
 
-        echo "INFO: TX {$tx->operation_id}: {$paymentMethod} {$installments}x | Compra: {$tx->datetime} → Pago: {$tx->payment_date}\n";
+        echo "INFO: TX {$data['operation_number']}: {$paymentMethod} {$installments}x | Compra: {$tx->datetime} → Pago: {$tx->payment_date}\n";
         
         // --- MAPEANDO LOS CAMPOS NUEVOS ---
         $tx->operation_number = (int) ($data['operation_number'] ?? 0);
@@ -665,6 +665,54 @@ function fase2_peticion_transacciones() {
 
 /**
  * =========================================================================
+ * FUNCIÓN: filtrarAnulaciones
+ * =========================================================================
+ * Filtra las transacciones eliminando aquellas con operation_type = ANNULMENT
+ * y sus transacciones originales correspondientes (usando reference_operation_number).
+ * 
+ * @param array $transacciones Array de transacciones crudas de la API
+ * @return array Array filtrado sin anulaciones ni sus referencias
+ */
+function filtrarAnulaciones(array $transacciones): array {
+    echo "\n--- Filtrando Anulaciones ---\n";
+    
+    // 1. Identificar todas las transacciones de tipo ANNULMENT y sus referencias
+    $operationNumbersAExcluir = [];
+    
+    foreach ($transacciones as $tx) {
+        if (($tx['operation_type'] ?? '') === 'ANNULMENT') {
+            // Agregar el operation_number de la anulación misma
+            $operationNumbersAExcluir[] = $tx['operation_number'] ?? null;
+            
+            // Agregar el reference_operation_number (la transacción original)
+            $refOperationNumber = $tx['operation_detail']['reference_operation_number'] ?? null;
+            if ($refOperationNumber !== null) {
+                $operationNumbersAExcluir[] = $refOperationNumber;
+            }
+        }
+    }
+    
+    // Eliminar nulls y duplicados
+    $operationNumbersAExcluir = array_filter(array_unique($operationNumbersAExcluir));
+    
+    echo "INFO: Se encontraron " . count($operationNumbersAExcluir) . " transacciones a excluir por anulaciones.\n";
+    
+    // 2. Filtrar el array original excluyendo las transacciones identificadas
+    $transaccionesFiltradas = array_filter($transacciones, function($tx) use ($operationNumbersAExcluir) {
+        $operationNumber = $tx['operation_number'] ?? null;
+        return !in_array($operationNumber, $operationNumbersAExcluir, true);
+    });
+    
+    $totalExcluidas = count($transacciones) - count($transaccionesFiltradas);
+    echo "INFO: Se excluyeron $totalExcluidas transacciones del procesamiento.\n";
+    echo "INFO: Se excluyeron las siguientes operaciones: " . implode(', ', $operationNumbersAExcluir) . "\n";
+    
+    // Re-indexar el array (opcional pero recomendado)
+    return array_values($transaccionesFiltradas);
+}
+
+/**
+ * =========================================================================
  * FASE 3: MAPEO CON CLASE
  * =========================================================================
  * Objetivo: Convertir el array de datos crudos (JSON) en objetos PHP
@@ -676,7 +724,10 @@ function fase3_mapeo_clases() {
     
     echo "\n--- FASE 3: Mapeo a Clases ---\n";
     
-    foreach ($transaccionesObtenidas as $tx_raw) {
+    // Primero filtramos las anulaciones
+    $transaccionesFiltradas = filtrarAnulaciones($transaccionesObtenidas);
+    
+    foreach ($transaccionesFiltradas as $tx_raw) {
         $transaccionesMapeadas[] = Transaccion::fromArray($tx_raw);
     }
     
