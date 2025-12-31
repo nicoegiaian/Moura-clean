@@ -350,17 +350,9 @@ function esDiaHabil(DateTime $fecha): bool {
         return false; // Es fin de semana
     }
     
-    // 2. Verificar si está en la lista de FERIADOS
-    // Generamos todos los formatos posibles de la fecha
-    $f_ymd = $fecha->format('ymd');    // AAMMDD (6 dígitos)
-    $f_Ymd = $fecha->format('Ymd');    // AAAAMMDD (8 dígitos)
-    $f_dmy = $fecha->format('dmy');    // DDMMAA (6 dígitos)
-    $f_dmY = $fecha->format('dmY');    // DDMMAAAA (8 dígitos)
-    
-    $esFeriado = in_array($f_ymd, FERIADOS, true) || 
-    in_array($f_Ymd, FERIADOS, true) || 
-    in_array($f_dmy, FERIADOS, true) || 
-    in_array($f_dmY, FERIADOS, true);
+    // 2. Verificar si está en la lista de FERIADOS (formato dmy: ddmmaa)
+    $f_dmy = $fecha->format('dmy');
+    $esFeriado = in_array($f_dmy, FERIADOS, true);
     
     if ($esFeriado) {
         return false; // Es feriado
