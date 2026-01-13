@@ -1510,7 +1510,7 @@ function guardar_log_archivosdiarios() {
 	function insertarDetalleLiquidacion($dbConnection, $datosBIND) {
 		
 		
-		// Consulta SQL de inserción (actualizada con nuevas columnas)
+		// Consulta SQL de inserción
 		$query = "INSERT INTO liquidacionesdetalle (
 			nrotransaccion,
 			comisionpd,
@@ -1530,9 +1530,7 @@ function guardar_log_archivosdiarios() {
 			otrosimpuestos,
 			beneficiocredmoura,
 			costomipyme,
-			IVAcostomipyme,
-			ahorrosplit,
-			costofinanciero
+			IVAcostomipyme
 		) VALUES (
 			:nrotransaccion,
 			:comisionpd,
@@ -1552,9 +1550,7 @@ function guardar_log_archivosdiarios() {
 			:otrosimpuestos,
 			:beneficiocredmoura,
 			:costomipyme,
-			:IVAcostomipyme,
-			:ahorrosplit,
-			:costofinanciero
+			:IVAcostomipyme
 		)";
 	
 		// Preparamos la consulta
@@ -1662,12 +1658,7 @@ function guardar_log_archivosdiarios() {
 		
 		$arancelTarjeta = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta']);
 		
-		// =================================================================
-		// CÁLCULO BENEFICIO BASE (ACTUALIZADO)
-		// Req: Beneficio CredMoura Base = 0.7% (0.2% dif arancel + 0.5% subsidio)
-		// Antes: 0.5% | Ahora: 0.7%
-		// =================================================================
-		$beneficioBase = $importeBruto * 0.007; // 0.007 es 0.7%
+		$beneficioBase = $importeBruto * 0.005; // 0.005 es 0.5%
 
 		if($datosBIND['forma_pago'] == METODO_PAGO_BIND_CREDITO_CUOTAS && ($cuotas == 3 || $cuotas == 6)) {
 			
@@ -1681,52 +1672,14 @@ function guardar_log_archivosdiarios() {
 			// Fórmula: (CFT Cliente) - (Financial Cost) + (Beneficio Base)
 			$beneficioCredMoura = ($cftCliente - $costomipyme) + $beneficioBase;			
 		} else {
-			// Si no es 3 o 6 cuotas, es solo el Beneficio Base
+			// 3) Si no es 3 o 6 cuotas, es solo el Beneficio Base
 			$beneficioCredMoura = $beneficioBase;
 		}
 		
-		// =================================================================
-		// CÁLCULO AHORRO SPLIT (NUEVO REQUERIMIENTO)
-		// Req: Calcular ahorro adicional según porcentaje PDV
-		// =================================================================
-		
 		// Se obtiene el porcentaje de split que corresponde al PDV
-		$porcentajePDV = obtenerPorcentajePDV($dbConnection, $datosBIND['numero_de_comercio'], $fechaLiquidacion);
+		$porcentajePDV = obtenerPorcentajePDV($dbConnection, $datosBIND['numero_de_comercio'], $fechaLiquidacion );		
 		
-		// Inicializar variable de Ahorro Split
-		$ahorroSplit = 0.0;
-		
-		// Aplicar reglas de negocio según porcentaje PDV
-		if ($porcentajePDV == 30) {
-			// Caso 30-70 (30% PDV): 0.84% base + 0.04% IVA dif = 0.88% total
-			$ahorroSplit = $importeBrutoOriginal * 0.0088;
-			echo "INFO: Aplicando Ahorro Split 30-70 (0.88%) - TX: {$datosBIND['transaccion']}\n";
-			
-		} elseif ($porcentajePDV == 0) {
-			// Caso 0-100 (0% PDV): 1.2% total
-			$ahorroSplit = $importeBrutoOriginal * 0.012;
-			echo "INFO: Aplicando Ahorro Split 0-100 (1.2%) - TX: {$datosBIND['transaccion']}\n";
-			
-		} elseif ($porcentajePDV == 40) {
-			// Caso 40-60 (40% PDV): 0.72% total
-			$ahorroSplit = $importeBrutoOriginal * 0.0072;
-			echo "INFO: Aplicando Ahorro Split 40-60 (0.72%) - TX: {$datosBIND['transaccion']}\n";
-			
-		} elseif ($porcentajePDV == 50) {
-			// Caso 50-50 (50% PDV): 0.6% total
-			$ahorroSplit = $importeBrutoOriginal * 0.006;
-			echo "INFO: Aplicando Ahorro Split 50-50 (0.6%) - TX: {$datosBIND['transaccion']}\n";
-			
-		} else {
-			// Otros casos: $ahorroSplit permanece en 0
-			echo "INFO: Sin Ahorro Split definido para PDV {$porcentajePDV}% - TX: {$datosBIND['transaccion']}\n";
-		}
-		
-		// =================================================================
-		// FIN CÁLCULO AHORRO SPLIT
-		// =================================================================
-		
-		//A partir del porcentaje de ahorro del PDV se obtiene cual es el porcentaje de ahorro que le corresponde 
+		//A partir del porcentaje de ahorro del PDV se obtiene cualo es el porcentaje de ahorro que le corresponde 
 		$porcentajeAhorroSplit = obtenerPorcentajePorTipoOperacion($dbConnection, $fechaLiquidacion, $porcentajePDV);
 		
 		//Se utiliza el porcentaje de ahorro con el ID correspondiente
@@ -1735,10 +1688,6 @@ function guardar_log_archivosdiarios() {
 		$ivaArancelTarjeta = convertirImporteFormatoBINDANumerico($datosBIND['tax_aranceltarjeta_vat']);
 		$ivaDescuentoCuotas = 0; //el IVA para el costo de financiacion de Moura es 0
 
-		// =================================================================
-		// BIND DE VALORES AL INSERT (ACTUALIZADO CON NUEVAS COLUMNAS)
-		// =================================================================
-		
 		// Asignamos los valores a los parámetros
 		$stmt->bindValue(':nrotransaccion', intval($datosBIND['transaccion']));
 		$stmt->bindValue(':comisionpd', $comisionPD);
@@ -1748,7 +1697,7 @@ function guardar_log_archivosdiarios() {
 		$stmt->bindValue(':comisionprontopago', $comisionProntoPago);
 		$stmt->bindValue(':ivacomisionprontopago', $comisionProntoPago * IVA);
 		$stmt->bindValue(':descuentocuotas', $descuentoCuotas);
-		$stmt->bindValue(':ivadescuentocuotas', $ivaDescuentoCuotas);
+		$stmt->bindValue(':ivadescuentocuotas', $ivaDescuentoCuotas); //divido en 2 porque de Menta viene un 21% cuando deberia ser 10,5%
 		$stmt->bindValue(':costoacreditacion', $costoAcreditacion);
 		$stmt->bindValue(':ivacostoacreditacion', $costoAcreditacion * IVA);
 		$stmt->bindValue(':aranceltarjeta', $arancelTarjeta);
@@ -1759,10 +1708,6 @@ function guardar_log_archivosdiarios() {
 		$stmt->bindValue(':beneficiocredmoura', $beneficioCredMoura);
 		$stmt->bindValue(':costomipyme', $costomipyme);
 		$stmt->bindValue(':IVAcostomipyme', $IVAcostomipyme);
-		
-		// NUEVOS CAMPOS: Ahorro Split y Costo Financiero
-		$stmt->bindValue(':ahorrosplit', $ahorroSplit);
-		$stmt->bindValue(':costofinanciero', $costomipyme); // El costo financiero es el mismo que costomipyme (Tasa MiPyme)
 	
 		// Ejecutamos la consulta
 		if ($stmt->execute()) {
