@@ -9,3 +9,4 @@ api/.env
 /vendor/
 api/constants.php
 backups/
+.vscode/sftp.json
