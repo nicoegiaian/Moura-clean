@@ -13,7 +13,8 @@ error_reporting(E_ALL);
  * Tomará todo el contenido del búfer de salida (todos los 'echo')
  * y lo escribirá en un archivo de log.
  */
-function guardar_log_al_finalizar() {
+function guardar_log_al_finalizar()
+{
     // Hacemos visible la variable global de tiempo de inicio
     global $GLOBAL_START_TIME;
 
@@ -28,11 +29,11 @@ function guardar_log_al_finalizar() {
 
     // --- INICIO: CÁLCULO DE DURACIÓN ---
     $endTime = microtime(true); // Tiempo exacto de finalización
-    
+
     // (?? $endTime) es un seguro por si $GLOBAL_START_TIME no estuviera definida
-    $durationSeconds = $endTime - ($GLOBAL_START_TIME ?? $endTime); 
+    $durationSeconds = $endTime - ($GLOBAL_START_TIME ?? $endTime);
     $durationMinutes = round($durationSeconds / 60, 2); // Convertimos a minutos
-    
+
     // 4. Creamos el pie de página del log
     $footerLog = "\n\n============================================\n";
     $footerLog .= "== PROCESO FINALIZADO: " . (new DateTime())->format('Y-m-d H:i:s') . " ==\n";
@@ -50,11 +51,21 @@ require __DIR__ . '/vendor/autoload.php';
 require_once 'constants.php';
 
 define('MAPA_MESES', [
-    1 => '1', 2 => '2', 3 => '3', 4 => '4', 5 => '5', 6 => '6',
-    7 => '7', 8 => '8', 9 => '9', 10 => 'A', 11 => 'B', 12 => 'C'
+    1 => '1',
+    2 => '2',
+    3 => '3',
+    4 => '4',
+    5 => '5',
+    6 => '6',
+    7 => '7',
+    8 => '8',
+    9 => '9',
+    10 => 'A',
+    11 => 'B',
+    12 => 'C'
 ]);
 // "Alias" para las clases de PhpSpreadsheet que usaremos
-use PhpOffice\PhpSpreadsheet\Spreadsheet; 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 // --- Activacion de Log
@@ -70,7 +81,7 @@ echo "============================================\n\n";
 
 
 // Cargar las variables de entorno (desde el archivo .env)
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__); 
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
 $fechaProcesoStr = null;
@@ -85,7 +96,7 @@ if (isset($_GET['fecha'])) {
 
 if ($fechaProcesoStr === null) {
     echo "ERROR: No se proporcionó la fecha. Use ?fecha=... o como argumento en la CLI.\n";
-    ob_end_flush(); 
+    ob_end_flush();
     ob_start();
     throw new \Exception("ERROR: No se proporcionó la fecha. Use ?fecha=... o como argumento en la CLI.\n");
 }
@@ -100,9 +111,9 @@ if (preg_match('/^\d{8}$/', $fechaProcesoStr)) {
     $formatoFecha = 'dmy'; // Formato: ddmmaa
 } else {
     echo "ERROR: El formato de fecha debe ser 'aaaammdd' o 'ddmmaa'. Se recibió: $fechaProcesoStr\n";
-    ob_end_flush(); 
+    ob_end_flush();
     ob_start();
-    throw new \Exception ("ERROR: El formato de fecha debe ser 'aaaammdd' o 'ddmmaa'. Se recibió: $fechaProcesoStr\n");
+    throw new \Exception("ERROR: El formato de fecha debe ser 'aaaammdd' o 'ddmmaa'. Se recibió: $fechaProcesoStr\n");
 }
 
 // 3. Crear el objeto DateTime (una sola vez)
@@ -111,10 +122,10 @@ try {
     // Usamos el formato detectado para crear el objeto
     $fechaProceso = DateTime::createFromFormat($formatoFecha, $fechaProcesoStr, $utc);
 
-    if ($fechaProceso === false) { 
-        throw new Exception("Fecha inválida o no coincide con el formato $formatoFecha."); 
+    if ($fechaProceso === false) {
+        throw new Exception("Fecha inválida o no coincide con el formato $formatoFecha.");
     }
-    
+
     // 4. Crear los strings 'start' y 'end' para la API
     // Clonamos el objeto para no modificar el original ($fechaProceso se usa en FASE 5)
     $dt_start = clone $fechaProceso;
@@ -122,12 +133,11 @@ try {
 
     $dt_end = clone $fechaProceso;
     $fechaEnd = $dt_end->setTime(23, 59, 59)->format('Y-m-d\TH:i:s\Z');
-             
-    echo "INFO: Rango de búsqueda: $fechaStart -> $fechaEnd\n";
 
+    echo "INFO: Rango de búsqueda: $fechaStart -> $fechaEnd\n";
 } catch (Exception $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
-    ob_end_flush(); 
+    ob_end_flush();
     ob_start();
     throw new Exception("ERROR: " . $e->getMessage() . "\n");
 }
@@ -152,7 +162,8 @@ use GuzzleHttp\Exception\RequestException;
  * =========================================================================
  * Representa una transacción de la API de Menta con todos sus campos mapeados.
  */
-class Transaccion {
+class Transaccion
+{
     // --- Campos Principales (Nivel 1) ---
     public string $transaction_id;
     public string $operation_id;
@@ -176,7 +187,7 @@ class Transaccion {
     // --- Campos de 'tax_info' (Aplanados) ---
     public ?float $net_amount;
     public ?string $payment_date;
-    
+
     // --- CAMPOS NUEVOS (requeridos por transformarFila) ---
     public int $operation_number;
     public int $ref_operation_number;
@@ -187,14 +198,15 @@ class Transaccion {
     public float $tax_financial_cost_rate = 0.0;
     public float $tax_financial_cost_vat;
     public float $tax_financial_cost_vat_rate = 0.0;
-    
+
     /**
      * Método "Factory" para crear un objeto desde el array REAL de la API
      * @param array $data Un elemento del array 'content' de la API
      */
-    public static function fromArray(array $data): self {
+    public static function fromArray(array $data): self
+    {
         $tx = new self();
-        
+
         // --- Mapeo Nivel 1 (Campos Principales) ---
         $tx->transaction_id = $data['transaction_id'] ?? 'N/A';
         $tx->operation_id = $data['operation_id'] ?? 'N/A';
@@ -219,16 +231,16 @@ class Transaccion {
         $tx->card_brand = $card_info['card_brand'] ?? null;
         $tx->card_mask = $card_info['card_mask'] ?? null;
         $tx->net_amount = (float) ($tax_info['net_amount'] ?? 0.0);
-        
+
         // CALCULAR FECHA DE PAGO según reglas de negocio
         $paymentMethod = $data['payment_method'] ?? 'UNKNOWN';
         $installments = (int)($data['installments'] ?? 1);
         $datetime = $data['datetime'] ?? '';
-        
+
         $tx->payment_date = calcularFechaPago($paymentMethod, $installments, $datetime);
 
         echo "INFO: TX {$data['operation_number']}: {$paymentMethod} {$installments}x | Compra: {$tx->datetime} → Pago: {$tx->payment_date}\n";
-        
+
         // --- MAPEANDO LOS CAMPOS NUEVOS ---
         $tx->operation_number = (int) ($data['operation_number'] ?? 0);
         $tx->ref_operation_number = (int) ($data['ref_operation_number'] ?? 0);
@@ -237,14 +249,14 @@ class Transaccion {
         $tx->tax_commission_vat = 0.0;
         $tx->tax_financial_cost = 0.0;
         $tx->tax_financial_cost_vat = 0.0;
-        
+
         $tax_breakdown = $tax_info['tax_breakdown'] ?? [];
 
         if (is_array($tax_breakdown)) {
             foreach ($tax_breakdown as $tax) {
                 $tax_code = $tax['tax_code'] ?? '';
                 $amount = (float) ($tax['amount'] ?? 0.0);
-                
+
                 switch ($tax_code) {
                     case 'ACQUIRER_TO_CUSTOMER_COMMISSION':
                         $tx->tax_commission = $amount;
@@ -290,17 +302,17 @@ $transaccionesMapeadas = [];
  * @param DateTime $fechaProceso
  * @return string La extensión calculada (ej. 'B11')
  */
-function calcularExtension(DateTime $fechaProceso): string 
+function calcularExtension(DateTime $fechaProceso): string
 {
     // Usamos la constante global
-    $mapaMeses = MAPA_MESES; 
+    $mapaMeses = MAPA_MESES;
 
     // --- LÓGICA DE DETECCIÓN DE FECHAS NO HÁBILES ---
-    $esFeriado = in_array($fechaProceso->format('ymd'), FERIADOS, true) || 
-                 in_array($fechaProceso->format('Ymd'), FERIADOS, true) || 
-                 in_array($fechaProceso->format('dmy'), FERIADOS, true) || 
-                 in_array($fechaProceso->format('dmY'), FERIADOS, true);
-                 
+    $esFeriado = in_array($fechaProceso->format('ymd'), FERIADOS, true) ||
+        in_array($fechaProceso->format('Ymd'), FERIADOS, true) ||
+        in_array($fechaProceso->format('dmy'), FERIADOS, true) ||
+        in_array($fechaProceso->format('dmY'), FERIADOS, true);
+
     $diaDeLaSemana = (int)$fechaProceso->format('N');
     $esFinDeSemana = ($diaDeLaSemana >= 6);
 
@@ -313,10 +325,10 @@ function calcularExtension(DateTime $fechaProceso): string
             if ($diaLoop >= 6) continue; // Si es Sábado/Domingo, salta al siguiente
 
             // Chequeo de feriados para la fecha avanzada
-            $esFeriadoLoop = in_array($fechaParaExtension->format('ymd'), FERIADOS, true) || 
-                             in_array($fechaParaExtension->format('Ymd'), FERIADOS, true) || 
-                             in_array($fechaParaExtension->format('dmy'), FERIADOS, true) || 
-                             in_array($fechaParaExtension->format('dmY'), FERIADOS, true);
+            $esFeriadoLoop = in_array($fechaParaExtension->format('ymd'), FERIADOS, true) ||
+                in_array($fechaParaExtension->format('Ymd'), FERIADOS, true) ||
+                in_array($fechaParaExtension->format('dmy'), FERIADOS, true) ||
+                in_array($fechaParaExtension->format('dmY'), FERIADOS, true);
 
             if (!$esFeriadoLoop) break; // Si es día hábil y no feriado, rompemos el bucle
         }
@@ -326,7 +338,7 @@ function calcularExtension(DateTime $fechaProceso): string
     // Construcción final de la extensión
     $mesNum = (int)$fechaParaExtension->format('n');
     $diaStr = $fechaParaExtension->format('d');
-    
+
     // Retorna (Mes de Extensión + Día)
     return $mapaMeses[$mesNum] . $diaStr;
 }
@@ -341,23 +353,24 @@ function calcularExtension(DateTime $fechaProceso): string
  * @param DateTime $fecha La fecha a verificar
  * @return bool true si es día hábil, false si no
  */
-function esDiaHabil(DateTime $fecha): bool {
+function esDiaHabil(DateTime $fecha): bool
+{
     // 1. Verificar si es fin de semana (Sábado=6, Domingo=7)
     $diaSemana = (int)$fecha->format('N');
 
-    
+
     if ($diaSemana >= 6) {
         return false; // Es fin de semana
     }
-    
+
     // 2. Verificar si está en la lista de FERIADOS (formato dmy: ddmmaa)
     $f_dmy = $fecha->format('dmy');
     $esFeriado = in_array($f_dmy, FERIADOS, true);
-    
+
     if ($esFeriado) {
         return false; // Es feriado
     }
-    
+
     return true; // Es día hábil
 }
 
@@ -387,8 +400,9 @@ function esDiaHabil(DateTime $fecha): bool {
  * @param string $datetime Fecha/hora de la transacción (formato ISO 8601)
  * @return string|null Fecha de pago en formato 'YYYY-MM-DD' o null si hay error
  */
-function calcularFechaPago(string $paymentMethod, int $installments, string $datetime): ?string {
-    
+function calcularFechaPago(string $paymentMethod, int $installments, string $datetime): ?string
+{
+
     // 1. Parsear la fecha de la transacción
     try {
         $fechaTransaccion = new DateTime($datetime);
@@ -396,19 +410,19 @@ function calcularFechaPago(string $paymentMethod, int $installments, string $dat
         // Si hay error al parsear la fecha, retornamos null
         return null;
     }
-    
+
     // 2. Determinar cuántos días hábiles necesitamos agregar según las reglas
     $diasHabilesRequeridos = 0;
-    
+
     switch ($paymentMethod) {
         case 'DEBIT':
             $diasHabilesRequeridos = DIAS_HABILES_DEBIT;
             break;
-            
+
         case 'QR':
             $diasHabilesRequeridos = DIAS_HABILES_QR;
             break;
-            
+
         case 'CREDIT':
             if ($installments === 1) {
                 $diasHabilesRequeridos = DIAS_HABILES_CREDIT_1_CUOTA;
@@ -417,20 +431,20 @@ function calcularFechaPago(string $paymentMethod, int $installments, string $dat
                 $diasHabilesRequeridos = DIAS_HABILES_CREDIT_CUOTAS;
             }
             break;
-            
+
         case 'PREPAID':
             // PREPAID solo maneja 1 cuota
             $diasHabilesRequeridos = DIAS_HABILES_PREPAID_1_CUOTA;
             break;
-            
+
         default:
             // Método de pago desconocido, retornamos null
             return null;
     }
-    
+
     // 3. Calcular la fecha de pago sumando los días hábiles
     $fechaPago = clone $fechaTransaccion;
-    
+
     // PASO 1: Si la transacción se hizo en día NO hábil, 
     // se considera como realizada el siguiente día hábil
     if (!esDiaHabil($fechaPago)) {
@@ -438,19 +452,19 @@ function calcularFechaPago(string $paymentMethod, int $installments, string $dat
             $fechaPago->modify('+1 day');
         } while (!esDiaHabil($fechaPago));
     }
-    
+
     // PASO 2: Ahora desde este día hábil, contamos los días hábiles requeridos
     $diasHabilesContados = 0;
     while ($diasHabilesContados < $diasHabilesRequeridos) {
         // Avanzamos un día
         $fechaPago->modify('+1 day');
-        
+
         // Si es día hábil, lo contamos
         if (esDiaHabil($fechaPago)) {
             $diasHabilesContados++;
         }
     }
-    
+
     // 4. Retornar la fecha en formato YYYY-MM-DD
     return $fechaPago->format('Y-m-d');
 }
@@ -463,7 +477,8 @@ function calcularFechaPago(string $paymentMethod, int $installments, string $dat
  * Objetivo: Obtener un token OAuth2 válido, reusando uno cacheado si existe
  * y no ha expirado.
  */
-function fase1_autenticacion() {
+function fase1_autenticacion()
+{
     global $accessToken, $MENTA_USER, $MENTA_PASSWORD, $MENTA_API_URL;
 
     echo "--- FASE 1: Autenticación ---\n";
@@ -471,14 +486,14 @@ function fase1_autenticacion() {
     // 1.1: Revisar si tenemos un token guardado (en caché)
     if (file_exists(TOKEN_CACHE_FILE)) {
         $cacheData = json_decode(file_get_contents(TOKEN_CACHE_FILE), true);
-        
+
         // 1.2: Revisar si el token NO ha expirado (le damos 60s de margen)
         if (isset($cacheData['expires_at']) && $cacheData['expires_at'] > (time() + 60)) {
             echo "INFO: Usando token válido desde caché.\n";
             $accessToken = $cacheData['access_token'];
-            return; 
+            return;
         }
-        
+
         echo "INFO: El token en caché ha expirado o es inválido.\n";
     }
 
@@ -490,21 +505,21 @@ function fase1_autenticacion() {
     ]);
 
     try {
-   
-        $response = $client->post('v1/login', [ 
-            'json' => [ 
-                'user'     => $MENTA_USER,     
-                'password' => $MENTA_PASSWORD  
+
+        $response = $client->post('v1/login', [
+            'json' => [
+                'user'     => $MENTA_USER,
+                'password' => $MENTA_PASSWORD
             ]
         ]);
 
         if ($response->getStatusCode() === 200) {
             $data = json_decode($response->getBody(), true);
-            
+
 
             $accessToken = $data['token']['access_token']; // El token
             $expiresIn = $data['token']['expires_in'];   // Segundos de vida (ej: 43200)
-            
+
             // Calculamos la marca de tiempo UNIX de expiración
             $expiresAt = time() + $expiresIn;
 
@@ -513,40 +528,36 @@ function fase1_autenticacion() {
                 'access_token' => $accessToken,
                 'expires_at'   => $expiresAt
             ]));
-            
+
             echo "EXITO: Nuevo token obtenido y guardado en caché.\n";
             echo "       (Expira en $expiresIn segundos)\n";
-
         } else {
             echo "ERROR: La API devolvió un estado no exitoso: " . $response->getStatusCode() . "\n";
         }
-
     } catch (GuzzleHttp\Exception\ConnectException $e) {
         // Fallo de red/conexión (no hay respuesta HTTP)
         echo "ERROR CRITICO: Fallo de red/conexión al intentar obtener el token.\n";
-        ob_end_flush(); 
+        ob_end_flush();
         ob_start();
         $errorMessage = "Fallo de conexión Guzzle: " . $e->getMessage();
-        throw new \Exception($errorMessage, 0, $e); 
-        
+        throw new \Exception($errorMessage, 0, $e);
     } catch (GuzzleHttp\Exception\ClientException $e) {
         // Fallo 4xx/5xx (hay respuesta HTTP)
         echo "ERROR CRITICO: La API devolvió un código de error (4xx/5xx).\n";
         echo "Mensaje: " . $e->getMessage() . "\n";
-        
+
         // Aquí sí hay respuesta
         echo "Respuesta de la API: " . $e->getResponse()->getBody()->getContents() . "\n";
-        ob_end_flush(); 
+        ob_end_flush();
         ob_start();
         $errorMessage = "Fallo 4xx/5xx de Autenticación: " . $e->getMessage();
-        throw new \Exception($errorMessage, 0, $e); 
-        
+        throw new \Exception($errorMessage, 0, $e);
     } catch (GuzzleException $e) {
         // Catch general para otros errores Guzzle no clasificados
-        ob_end_flush(); 
+        ob_end_flush();
         ob_start();
         $errorMessage = "Fallo Guzzle general: " . $e->getMessage();
-        throw new \Exception($errorMessage, 0, $e); 
+        throw new \Exception($errorMessage, 0, $e);
     }
 }
 
@@ -558,14 +569,15 @@ function fase1_autenticacion() {
  * Objetivo: Usar el token para consultar el endpoint 'Transacciones v2.0'.
  * Implementa un bucle 'do-while' para traer TODAS las páginas de resultados.
  */
-function fase2_peticion_transacciones() {
+function fase2_peticion_transacciones()
+{
     global $accessToken, $transaccionesObtenidas, $MENTA_API_URL, $fechaStart, $fechaEnd;
-    
+
     if (!$accessToken) {
         echo "ERROR: No hay token (Fase 1 falló). No se puede continuar.\n";
         return;
     }
-    
+
     echo "\n--- FASE 2: Petición de Transacciones ---\n";
 
     // Creamos un nuevo cliente Guzzle para esta fase
@@ -582,10 +594,10 @@ function fase2_peticion_transacciones() {
 
         try {
             $response = $client->get('v2/transaction-reports', [ // Endpoint SIN / al inicio
-                'headers' => [ 
-                    'Authorization' => 'Bearer ' . $accessToken 
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $accessToken
                 ],
-                'query' => [ 
+                'query' => [
                     'page'  => $paginaActual,
                     'size'  => 10000, // El tamaño de página que pediste
                     'start' => $fechaStart,
@@ -595,61 +607,57 @@ function fase2_peticion_transacciones() {
 
             if ($response->getStatusCode() === 200) {
                 $data = json_decode($response->getBody(), true);
-                
+
                 $transaccionesPagina = $data['content']; // Transacciones de ESTA página
                 $nuevasObtenidas = count($transaccionesPagina);
-                
+
                 // Agregamos las transacciones de esta página al array global
                 $transaccionesObtenidas = array_merge($transaccionesObtenidas, $transaccionesPagina);
-                
+
                 // Actualizamos nuestros contadores de paginación
                 $paginasTotales = $data['total_pages'];
                 $paginaActual = $data['pageable']['page_number'];
-                
+
                 echo "EXITO: Se obtuvieron $nuevasObtenidas transacciones de la página $paginaActual.\n";
                 echo "       (Página " . ($paginaActual + 1) . " de $paginasTotales. Total acumulado: " . count($transaccionesObtenidas) . ")\n";
 
                 // Preparamos la siguiente iteración
                 $paginaActual++;
-
             } else {
                 $errorMessage = "La API de Menta devolvió un código HTTP de error: " . $response->getStatusCode();
                 echo "ERROR CRÍTICO: " . $errorMessage . "\n";
-                ob_end_flush(); 
+                ob_end_flush();
                 ob_start();
                 throw new \Exception($errorMessage);
             }
-
         } catch (RequestException $e) {
             // Errores HTTP (4xx, 5xx) - tiene hasResponse()
             echo "ERROR CRITICO: Falla en la petición de transacciones.\n";
             echo "Mensaje: " . $e->getMessage() . "\n";
-            
+
             if ($e->hasResponse()) {
                 $statusCode = $e->getResponse()->getStatusCode();
                 $responseBody = $e->getResponse()->getBody()->getContents();
-                
+
                 echo "Código HTTP: $statusCode\n";
                 echo "Respuesta de la API: $responseBody\n";
-                
+
                 // Si el error es 401, el token expiró
                 if ($statusCode === 401) {
                     echo "ADVERTENCIA: Token expirado. Considere reintentar la autenticación.\n";
                 }
             }
-            ob_end_flush(); 
+            ob_end_flush();
             ob_start();
             throw new \Exception("Fallo en la petición de transacciones (HTTP error).", 0, $e);
-            
         } catch (GuzzleException $e) {
             // Otros errores de Guzzle (timeout, DNS, etc.)
             echo "ERROR CRITICO: Error de red o conexión.\n";
             echo "Mensaje: " . $e->getMessage() . "\n";
-            ob_end_flush(); 
+            ob_end_flush();
             ob_start();
             throw new \Exception("Fallo en la comunicación con la API de Menta.", 0, $e);
         }
-
     } while ($paginaActual < $paginasTotales); // Continuamos mientras haya páginas por pedir
 
     echo "\n--- FIN FASE 2: Se obtuvieron un total de " . count($transaccionesObtenidas) . " transacciones. ---\n";
@@ -665,17 +673,18 @@ function fase2_peticion_transacciones() {
  * @param array $transacciones Array de transacciones crudas de la API
  * @return array Array filtrado sin anulaciones ni sus referencias
  */
-function filtrarAnulaciones(array $transacciones): array {
+function filtrarAnulaciones(array $transacciones): array
+{
     echo "\n--- Filtrando Anulaciones ---\n";
-    
+
     // 1. Identificar todas las transacciones de tipo ANNULMENT y sus referencias
     $operationNumbersAExcluir = [];
-    
+
     foreach ($transacciones as $tx) {
         if (($tx['operation_type'] ?? '') === 'ANNULMENT') {
             // Agregar el operation_number de la anulación misma
             $operationNumbersAExcluir[] = $tx['operation_number'] ?? null;
-            
+
             // Agregar el reference_operation_number (la transacción original)
             $refOperationNumber = $tx['operation_detail']['reference_operation_number'] ?? null;
             if ($refOperationNumber !== null) {
@@ -683,22 +692,22 @@ function filtrarAnulaciones(array $transacciones): array {
             }
         }
     }
-    
+
     // Eliminar nulls y duplicados
     $operationNumbersAExcluir = array_filter(array_unique($operationNumbersAExcluir));
-    
+
     echo "INFO: Se encontraron " . count($operationNumbersAExcluir) . " transacciones a excluir por anulaciones.\n";
-    
+
     // 2. Filtrar el array original excluyendo las transacciones identificadas
-    $transaccionesFiltradas = array_filter($transacciones, function($tx) use ($operationNumbersAExcluir) {
+    $transaccionesFiltradas = array_filter($transacciones, function ($tx) use ($operationNumbersAExcluir) {
         $operationNumber = $tx['operation_number'] ?? null;
         return !in_array($operationNumber, $operationNumbersAExcluir, true);
     });
-    
+
     $totalExcluidas = count($transacciones) - count($transaccionesFiltradas);
     echo "INFO: Se excluyeron $totalExcluidas transacciones del procesamiento.\n";
     echo "INFO: Se excluyeron las siguientes operaciones: " . implode(', ', $operationNumbersAExcluir) . "\n";
-    
+
     // Re-indexar el array (opcional pero recomendado)
     return array_values($transaccionesFiltradas);
 }
@@ -711,20 +720,20 @@ function filtrarAnulaciones(array $transacciones): array {
  * tipados (nuestra clase 'Transaccion').
  */
 
-function fase3_mapeo_clases() {
+function fase3_mapeo_clases()
+{
     global $transaccionesObtenidas, $transaccionesMapeadas;
-    
+
     echo "\n--- FASE 3: Mapeo a Clases ---\n";
-    
+
     // Primero filtramos las anulaciones
     $transaccionesFiltradas = filtrarAnulaciones($transaccionesObtenidas);
-    
+
     foreach ($transaccionesFiltradas as $tx_raw) {
         $transaccionesMapeadas[] = Transaccion::fromArray($tx_raw);
     }
-    
-    echo "EXITO: Se mapearon " . count($transaccionesMapeadas) . " objetos Transaccion.\n";
 
+    echo "EXITO: Se mapearon " . count($transaccionesMapeadas) . " objetos Transaccion.\n";
 }
 
 
@@ -790,7 +799,7 @@ function transformarFila(Transaccion $tx): array
     $filaTransformada['TIPO DE USUARIO'] = str_pad('', 20, '0'); // 116-135
     $filaTransformada['RELLENO_136_138'] = str_pad('', 3, '0'); // 136-138
     $filaTransformada['RELLENO_139_144'] = str_pad('', 6, '0'); // 139-144
-    
+
     // ADAPTADO: Leemos de $tx->datetime
     $fechaTrx = $tx->datetime;
     $fechaObjeto = null;
@@ -802,7 +811,7 @@ function transformarFila(Transaccion $tx): array
         }
     }
     $filaTransformada['HORARIO_DE_LA_TX'] = $fechaObjeto ? $fechaObjeto->format('His') : '000000'; // 145-150 
-    
+
     $filaTransformada['PROCESADOR DE PAGO'] = "010"; // 151-153
     $filaTransformada['RELLENO_154_156'] = str_pad('', 3, '0'); // 154-156
     $filaTransformada['PROCESADOR DE DEBITO INTERNO'] = str_pad('', 4, '0'); // 157-160
@@ -823,7 +832,7 @@ function transformarFila(Transaccion $tx): array
     $filaTransformada['RELLENO_177_179'] = str_pad('', 3, '0'); // 177-179
     $filaTransformada['CODIGO DE BARRA'] = str_pad('', 60, '0'); // 180-239
 
-    
+
     $filaTransformada['FECHA PAGO'] = $fechaObjeto ? $fechaObjeto->format('ymd') : '000000'; // 240-245
     $filaTransformada['TIPO DE TRANSACCION'] = str_pad('', 1, '0'); // 246-246
     $filaTransformada['RELLENO_247_253'] = str_pad('', 7, '0'); // 247-253
@@ -844,7 +853,7 @@ function transformarFila(Transaccion $tx): array
         $formaPago = '60';
     }
     $filaTransformada['FORMA_PAGO'] = $formaPago; // 263-264
-    
+
     $filaTransformada['RELLENO_265_268'] = str_pad('', 4, '0'); // 265-268
 
     // ADAPTADO: Leemos de $tx->installments
@@ -853,41 +862,41 @@ function transformarFila(Transaccion $tx): array
     $filaTransformada['DNI_CLIENTE'] = str_pad('', 15, '0'); // 272-286
 
     // --- NUEVAS REGLAS CORREGIDAS (287-620) ---
-    
+
     $filaTransformada['RELLENO_287_294'] = str_pad('', 8, '0'); // 287-294
     $filaTransformada['ID_TX_PROCESADOR'] = str_pad('', 30, '0'); // 295-324
     $filaTransformada['BARRA CUPON DE PAGO'] = str_pad('', 150, '0'); // 325-474
     $filaTransformada['ID GATEWAY'] = str_pad('', 30, '0'); // 475-504
-   
+
     $montoComm = $tx->tax_commission * 100;
     $filaTransformada['TAX_COMMISSION'] = str_pad($montoComm, 11, '0', STR_PAD_LEFT); // 505-515
-   
+
     $montoCommVat = $tx->tax_commission_vat * 100;
     $filaTransformada['TAX_COMMISSION_VAT'] = str_pad($montoCommVat, 11, '0', STR_PAD_LEFT); // 516-526
-   
+
     $montoFinCost = $tx->tax_financial_cost * 100;
     $filaTransformada['TAX_FINANCIAL_COST'] = str_pad($montoFinCost, 11, '0', STR_PAD_LEFT); // 527-537
-   
+
     $montoFinCostVat = $tx->tax_financial_cost_vat * 100;
     $filaTransformada['TAX_FINANCIAL_COST_VAT'] = str_pad($montoFinCostVat, 11, '0', STR_PAD_LEFT); // 538-548
-   
+
     // Guardamos el RATE (no el monto) (ej: 15.12% -> 1512)
     $rateFinCost = $tx->tax_financial_cost_rate * 100;
     $filaTransformada['TAX_FINANCIAL_COST_RATE'] = str_pad($rateFinCost, 11, '0', STR_PAD_LEFT); // 549-559
-   
+
 
     // Guardamos el RATE del IVA (no el monto) (ej: 21.0% -> 2100)
     $rateFinCostVat = $tx->tax_financial_cost_vat_rate * 100;
     $filaTransformada['TAX_FINANCIAL_COST_VAT_RATE'] = str_pad($rateFinCostVat, 11, '0', STR_PAD_LEFT); // 560-570
 
-    
+
     $filaTransformada['RELLENO_571_594'] = str_pad('', 24, ' '); // 571-594
     $filaTransformada['ID CAMPAÑA'] = str_pad('', 8, '0'); // 595-602
     $filaTransformada['RELLENO 603-605'] = str_pad('', 3, ' '); // 603-605
-    $filaTransformada['BIN DE LA TARJETA'] = str_pad('', 6, '0');// 606-611
-    $filaTransformada['ID RUBRO COMERCIO'] = str_pad('', 6, '0');// 612-617
-    $filaTransformada['ID PROV CLIENTE'] = str_pad('', 3, '0');// 618-620
-    
+    $filaTransformada['BIN DE LA TARJETA'] = str_pad('', 6, '0'); // 606-611
+    $filaTransformada['ID RUBRO COMERCIO'] = str_pad('', 6, '0'); // 612-617
+    $filaTransformada['ID PROV CLIENTE'] = str_pad('', 3, '0'); // 618-620
+
     return $filaTransformada;
 }
 
@@ -901,20 +910,60 @@ function ensamblarLinea(array $filaProcesada): string
 {
     // El orden de las claves en este array DEBE ser el orden del archivo de salida.
     $ordenDeCampos = [
-        'TIPO_REGISTRO', 'CODIGO_ENTIDAD', 'R', 'CODIGO_TERMINAL', 'PARSUBCOD', 
-        'CODIGO_SUCURSAL', 'RELLENO_33_36', 'TRANSACCION', 'CODIGO_OPERACION', 'RUBRO_TX', 
-        'N_COMERCIO', 'CODIGO_SERVICIO', 'IMPORTE', 'RELLENO_89_99', 'RELLENO_100_110', 
-        'MONEDA', 'RELLENO_112_115', 'TIPO DE USUARIO','RELLENO_136_138', 'RELLENO_139_144', 'HORARIO_DE_LA_TX', 
-        'PROCESADOR DE PAGO', 'RELLENO_154_156', 'PROCESADOR DE DEBITO INTERNO', 'FECHA_LIQUIDACION', 
-        'RELLENO_169_176', 'RELLENO_177_179', 'CODIGO DE BARRA', 'FECHA PAGO', 'TIPO DE TRANSACCION',
-        'RELLENO_247_253', 'ID_CLIENTE', 'FORMA_PAGO','RELLENO_265_268','CANTIDAD_CUOTAS','DNI_CLIENTE',
-        'RELLENO_287_294', 'ID_TX_PROCESADOR', 'BARRA CUPON DE PAGO',
-        'ID GATEWAY', 'TAX_COMMISSION', 'TAX_COMMISSION_VAT', 'TAX_FINANCIAL_COST', 'TAX_FINANCIAL_COST_VAT',
-        'TAX_FINANCIAL_COST_RATE','TAX_FINANCIAL_COST_VAT_RATE',
-        'RELLENO_571_594','ID CAMPAÑA', 'RELLENO 603-605',
-        'BIN DE LA TARJETA', 'ID RUBRO COMERCIO', 'ID PROV CLIENTE'
+        'TIPO_REGISTRO',
+        'CODIGO_ENTIDAD',
+        'R',
+        'CODIGO_TERMINAL',
+        'PARSUBCOD',
+        'CODIGO_SUCURSAL',
+        'RELLENO_33_36',
+        'TRANSACCION',
+        'CODIGO_OPERACION',
+        'RUBRO_TX',
+        'N_COMERCIO',
+        'CODIGO_SERVICIO',
+        'IMPORTE',
+        'RELLENO_89_99',
+        'RELLENO_100_110',
+        'MONEDA',
+        'RELLENO_112_115',
+        'TIPO DE USUARIO',
+        'RELLENO_136_138',
+        'RELLENO_139_144',
+        'HORARIO_DE_LA_TX',
+        'PROCESADOR DE PAGO',
+        'RELLENO_154_156',
+        'PROCESADOR DE DEBITO INTERNO',
+        'FECHA_LIQUIDACION',
+        'RELLENO_169_176',
+        'RELLENO_177_179',
+        'CODIGO DE BARRA',
+        'FECHA PAGO',
+        'TIPO DE TRANSACCION',
+        'RELLENO_247_253',
+        'ID_CLIENTE',
+        'FORMA_PAGO',
+        'RELLENO_265_268',
+        'CANTIDAD_CUOTAS',
+        'DNI_CLIENTE',
+        'RELLENO_287_294',
+        'ID_TX_PROCESADOR',
+        'BARRA CUPON DE PAGO',
+        'ID GATEWAY',
+        'TAX_COMMISSION',
+        'TAX_COMMISSION_VAT',
+        'TAX_FINANCIAL_COST',
+        'TAX_FINANCIAL_COST_VAT',
+        'TAX_FINANCIAL_COST_RATE',
+        'TAX_FINANCIAL_COST_VAT_RATE',
+        'RELLENO_571_594',
+        'ID CAMPAÑA',
+        'RELLENO 603-605',
+        'BIN DE LA TARJETA',
+        'ID RUBRO COMERCIO',
+        'ID PROV CLIENTE'
     ];
-    
+
     $lineaFinal = '';
     foreach ($ordenDeCampos as $campo) {
         $lineaFinal .= $filaProcesada[$campo] ?? '';
@@ -923,17 +972,18 @@ function ensamblarLinea(array $filaProcesada): string
     return $lineaFinal;
 }
 
-function generarArchivosVacios() {
-    global $fechaProceso; 
+function generarArchivosVacios()
+{
+    global $fechaProceso;
 
     // Replicamos la lógica de cálculo de la extensión, ya que fase5 no se ejecutó.
     // Esta lógica ya está duplicada y debe ser extraída en una función auxiliar si fuera posible.
     // Por ahora, la replicaremos aquí o asumimos que las variables globales necesarias están disponibles.
-    
+
     // --- Lógica simplificada de FECHA / EXTENSION ---
     // Usaremos valores fijos de prueba o la lógica que ya tenías en Fase 5
     // Para no duplicar el código complejo, usaremos las mismas variables globales:
-    
+
     // Suponiendo que la lógica de extensión está lista (debe estar en el global scope)
     $extensionCalculada = calcularExtension($fechaProceso);
     echo "Extensión de archivo calculada: " . $extensionCalculada . "\n";
@@ -944,18 +994,18 @@ function generarArchivosVacios() {
     if (!is_dir($directorioSalida)) {
         mkdir($directorioSalida, 0777, true);
     }
-    
+
     $fechaDMMYY = $fechaProceso->format('dmy');
-    
+
     // 1. Archivo de Lote (A065BOTON...)
     $nombreArchivoBase = 'A065BOTON' . $fechaDMMYY;
     $rutaLote = $directorioSalida . '/' . $nombreArchivoBase . '.' . $extensionCalculada;
-    
+
     $archivoSalida = fopen($rutaLote, 'w');
     if ($archivoSalida) {
         fwrite($archivoSalida, $header . "\n");
         fwrite($archivoSalida, $trailer . "\n"); // Escribir TRAILER vacío
-        fclose($archivoSalida); 
+        fclose($archivoSalida);
         echo "    -> Archivo $rutaLote generado vacío (HEADER/TRAILER).\n";
     }
 
@@ -968,7 +1018,7 @@ function generarArchivosVacios() {
         // NOTA: Replicar el HEADER/TRAILER que genera tu lógica existente para DEVOLUCIONES
         $header_DEV = "HEADER" . $fechaProceso->format('dmy'); // Usar formato 'dmy' si es el esperado
         $trailer_DEV = "TRAILER00000"; // Trailer de devoluciones
-        
+
         fwrite($archivoSalida_DEV, $header_DEV . "\n");
         fwrite($archivoSalida_DEV, $trailer_DEV . "\n");
         fclose($archivoSalida_DEV);
@@ -981,14 +1031,15 @@ function generarArchivosVacios() {
     $rutaArchivoCuotas = DIR_OUTPUT . '/archivocuotas.xlsx';
     $writer->save($rutaArchivoCuotas);
     echo "    -> Archivo 'archivocuotas.xlsx' generado vacío.\n";
-    }
+}
 /**
  * =========================================================================
  * FASE 5: GENERACIÓN DE ARCHIVOS DE SALIDA (Portado de procesador.php)
  * =========================================================================
  * Toma los objetos Transaccion mapeados y genera los archivos finales.
  */
-function fase5_generar_archivos() {
+function fase5_generar_archivos()
+{
     global $fechaProceso, $transaccionesMapeadas, $fechaProcesoStr; // Usamos las variables globales
 
     echo "\n--- FASE 5: Generación de Archivos de Salida ---\n";
@@ -1000,7 +1051,7 @@ function fase5_generar_archivos() {
 
     // --- 2. GENERACIÓN DE 'archivocuotas.xlsx' ---
     echo "Generando archivo 'archivocuotas.xlsx'...\n";
-    
+
     $spreadsheetCuotas = new Spreadsheet();
     $sheetCuotas = $spreadsheetCuotas->getActiveSheet();
     $sheetCuotas->setTitle('Cuotas');
@@ -1017,7 +1068,7 @@ function fase5_generar_archivos() {
             $sheetCuotas->setCellValue('A' . $filaCuotas, $tx->operation_number);
             // Usamos installments (int)
             $sheetCuotas->setCellValue('B' . $filaCuotas, $tx->installments);
-            
+
             $filaCuotas++;
             $registrosCuotas++;
         }
@@ -1035,120 +1086,119 @@ function fase5_generar_archivos() {
     if (!is_dir($directorioSalida)) {
         echo "Creando directorio de salida en: $directorioSalida\n";
         if (!mkdir($directorioSalida, 0777, true)) {
-            echo("Error: No se pudo crear el directorio de salida: $directorioSalida\n");
-            ob_end_flush(); 
+            echo ("Error: No se pudo crear el directorio de salida: $directorioSalida\n");
+            ob_end_flush();
             ob_start();
             throw new Exception("Error: No se pudo crear el directorio de salida: $directorioSalida\n");
         }
     }
-    
+
     // 3.2. ARMADO DEL HEADER
     $header = "HEADER" .
-              "A065" .
-              $fechaProceso->format('Ymd') .
-              $fechaProceso->format('Ymd') .
-              str_pad('1', 5, '0', STR_PAD_LEFT);
-    
+        "A065" .
+        $fechaProceso->format('Ymd') .
+        $fechaProceso->format('Ymd') .
+        str_pad('1', 5, '0', STR_PAD_LEFT);
+
     $lineasDelLote = [];
     $totalRegistrosLote = 0;
     $totalImporteLote = 0.0;
     $totalRegistrosDescartados = 0;
-    
+
     // 3.3. BUCLE DE TRANSFORMACIÓN (Itera sobre los objetos $transaccionesMapeadas)
     foreach ($transaccionesMapeadas as $tx) {
-        
+
         // 3.3.1. LÓGICA DE FILTRADO (de procesador.php)
         // La API ya nos dio solo las del día, pero re-validamos el estado.
         if ($tx->status === 'APPROVED') {
-            
+
             // 3.3.2. Transformar el objeto $tx
             $filaProcesada = transformarFila($tx);
 
             // 3.3.3. Ensamblar la línea de texto final
             $lineaFinal = ensamblarLinea($filaProcesada);
             $lineasDelLote[] = $lineaFinal;
-            
+
             // 3.3.4. Acumular para el TRAILER
             $totalRegistrosLote++;
             $totalImporteLote += $filaProcesada['__IMPORTE_RAW__'];
-        }
-        else {
+        } else {
             $totalRegistrosDescartados++; // Contamos el registro descartado
         }
     }
 
     // 3.4. ESCRITURA DE ARCHIVO DE LOTE
     if ($totalRegistrosLote > 0) {
-        
+
         $nombreArchivoBase = 'A065BOTON' . $fechaProceso->format('dmy');
         $rutaArchivoCompleta = $directorioSalida . '/' . $nombreArchivoBase . '.' . $extensionCalculada;
 
         echo "\n--- Lote #1 para Fecha Proceso " . $fechaProceso->format('d-m-Y') . " ---\n";
         echo "    -> Generando archivo: " . $rutaArchivoCompleta . "\n";
-        
+
         $archivoSalida = fopen($rutaArchivoCompleta, 'w');
         if (!$archivoSalida) {
-            echo("    -> ERROR: No se pudo abrir el archivo de salida: $rutaArchivoCompleta\n");
-            ob_end_flush(); 
+            echo ("    -> ERROR: No se pudo abrir el archivo de salida: $rutaArchivoCompleta\n");
+            ob_end_flush();
             ob_start();
             throw new \Exception("    -> ERROR: No se pudo abrir el archivo de salida: $rutaArchivoCompleta\n");
         }
 
         // Escribir Header
         fwrite($archivoSalida, $header . "\n");
-        
+
         // Escribir Líneas de Datos
-        foreach($lineasDelLote as $linea) {
+        foreach ($lineasDelLote as $linea) {
             fwrite($archivoSalida, $linea . "\n");
         }
 
         // 3.5. ARMADO Y ESCRITURA DEL TRAILER
         $trailer = "TRAILER";
         $trailer .= str_pad($totalRegistrosLote, 8, '0', STR_PAD_LEFT);
-        
+
         $importeFormateado = number_format($totalImporteLote, 2, '.', '');
         list($parteEntera, $parteDecimal) = explode('.', $importeFormateado);
         $trailer .= str_pad($parteEntera, 11, '0', STR_PAD_LEFT);
         $trailer .= str_pad($parteDecimal, 2, '0', STR_PAD_LEFT);
-        
+
         $trailer .= str_pad($totalRegistrosLote, 8, '0', STR_PAD_LEFT);
-        
+
         fwrite($archivoSalida, $trailer . "\n");
-        fclose($archivoSalida); 
-        
+        fclose($archivoSalida);
+
         echo "    -> Archivo generado con $totalRegistrosLote registros de transacciones en status APPROVED.\n";
-        
+
         if ($totalRegistrosDescartados > 0) {
             echo "    -> Se descartaron $totalRegistrosDescartados registros por transacciones con estados FAILED, REVERSED o REJECTED.\n";
         }
         // --- INICIO: BLOQUE PARA GENERAR A065DEVBOTON VACIO
-          echo "    -> Generando archivo A065DEVBOTON...\n";
-            
-          // Usamos la misma lógica de nombre base (ddmmyy) y extensión
-          $nombreArchivoBase_DEV = 'A065DEVBOTON' . $fechaProceso->format('dmy'); // dmy = ddmmaa
-          $rutaArchivoCompleta_DEV = $directorioSalida . '/' . $nombreArchivoBase_DEV . '.' . $extensionCalculada;
+        echo "    -> Generando archivo A065DEVBOTON...\n";
 
-          // Contenido del archivo
-          // $fechaProcesoStr ya contiene 'aaaammdd' del $argv[1]
-          $header_DEV = "HEADER" . $fechaProcesoStr; 
-          $trailer_DEV = "TRAILER00000";
+        // Usamos la misma lógica de nombre base (ddmmyy) y extensión
+        $nombreArchivoBase_DEV = 'A065DEVBOTON' . $fechaProceso->format('dmy'); // dmy = ddmmaa
+        $rutaArchivoCompleta_DEV = $directorioSalida . '/' . $nombreArchivoBase_DEV . '.' . $extensionCalculada;
 
-          $archivoSalida_DEV = fopen($rutaArchivoCompleta_DEV, 'w');
-          if (!$archivoSalida_DEV) {
-              echo "    -> ERROR: No se pudo abrir el archivo de salida $rutaArchivoCompleta_DEV. Omitiendo este archivo.\n";
-          } else {
-              fwrite($archivoSalida_DEV, $header_DEV . "\n");
-              fwrite($archivoSalida_DEV, $trailer_DEV . "\n");
-              fclose($archivoSalida_DEV);
-              echo "    -> Archivo $rutaArchivoCompleta_DEV generado con éxito.\n";
-          }
-        }  // --- FIN: NUEVO BLOQUE PARA A065DEVBOTON ---
-        else {
+        // Contenido del archivo
+        // $fechaProcesoStr ya contiene 'aaaammdd' del $argv[1]
+        $header_DEV = "HEADER" . $fechaProcesoStr;
+        $trailer_DEV = "TRAILER00000";
+
+        $archivoSalida_DEV = fopen($rutaArchivoCompleta_DEV, 'w');
+        if (!$archivoSalida_DEV) {
+            echo "    -> ERROR: No se pudo abrir el archivo de salida $rutaArchivoCompleta_DEV. Omitiendo este archivo.\n";
+        } else {
+            fwrite($archivoSalida_DEV, $header_DEV . "\n");
+            fwrite($archivoSalida_DEV, $trailer_DEV . "\n");
+            fclose($archivoSalida_DEV);
+            echo "    -> Archivo $rutaArchivoCompleta_DEV generado con éxito.\n";
+        }
+    }  // --- FIN: NUEVO BLOQUE PARA A065DEVBOTON ---
+    else {
         echo "\n--- No se encontraron registros 'APPROVED' para la Fecha de Proceso: " . $fechaProceso->format('d-m-Y') . " ---\n";
         if ($totalRegistrosDescartados > 0) {
             echo "    -> Se descartaron $totalRegistrosDescartados registros por transacciones con estados FAILED, REVERSED o REJECTED.\n";
         }
-        }
+    }
 }
 
 
@@ -1158,30 +1208,27 @@ try {
     fase1_autenticacion();
     fase2_peticion_transacciones();
     fase3_mapeo_clases();
-    
+
     echo "\n--- FASE 4: Control de Archivos ---\n";
 
     if (!empty($transaccionesMapeadas)) {
         // Opción A: Hay transacciones mapeadas. Procedemos al procesamiento completo.
         echo "INFO: Transacciones APPROVED encontradas. Generando archivos con contenido...\n";
         fase5_generar_archivos();
-        
     } elseif (empty($transaccionesObtenidas)) {
         // Opción B: No se obtuvieron transacciones de la API. (No hay ventas ni fallos)
         echo "INFO: No se encontraron transacciones en el rango de fecha. Generando archivos con HEADER/TRAILER vacíos.\n";
-        
+
         // **NUEVA LLAMADA:** Llamamos a una función auxiliar para generar solo los archivos vacíos.
         generarArchivosVacios();
-
     } else {
         // Opción C: Transacciones obtenidas, pero todas descartadas (FALLO/REVERSO). Generamos vacíos.
         echo "INFO: Transacciones obtenidas, pero ninguna APPROVED. Generando archivos con HEADER/TRAILER vacíos.\n";
         generarArchivosVacios();
     }
-    
+
     echo "\n<info>Proceso finalizado con éxito (Status 0).</info>\n";
     exit(0);
-
 } catch (Exception $e) {
     echo "\n\n--- ERROR CRÍTICO ---\n";
     echo "Mensaje: " . $e->getMessage() . "\n";
@@ -1190,5 +1237,3 @@ try {
     echo "-----------------------\n\n";
     exit(1);
 }
-
-?>
