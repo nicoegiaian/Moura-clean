@@ -388,7 +388,7 @@ function esDiaHabil(DateTime $fecha): bool
  * - QR: 2 días hábiles
  * - CREDIT 1 cuota: 8 días hábiles
  * - CREDIT 3 o 6 cuotas: 10 días hábiles (MiPyme)
- * - PREPAID: 8 días hábiles (solo maneja 1 cuota)
+ * - PREPAID: 2 días hábiles (solo maneja 1 cuota)
  * 
  * IMPORTANTE: El conteo de días empieza desde el día siguiente a la transacción.
  * Ejemplo: Compra el Lunes → Martes cuenta como día 1.

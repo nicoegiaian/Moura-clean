@@ -525,6 +525,29 @@ function convertirMetodoPago($mp)
 	}
 }
 
+function convertirMetodoPagoOrginal($mp)
+{
+
+	switch ($mp) {
+		case METODO_PAGO_BIND_DEBITO:
+			return METODO_PAGO_MOURA_DEBITO;
+			break;
+		case METODO_PAGO_BIND_CREDITO:
+		case METODO_PAGO_BIND_CREDITO_CUOTAS:
+			return METODO_PAGO_MOURA_CREDITO;
+			break;
+		case METODO_PAGO_BIND_DEBIN:
+			return METODO_PAGO_MOURA_PREPAGA_ORIGINAL;
+			break;
+		case METODO_PAGO_BIND_QR:
+			return METODO_PAGO_MOURA_QR;
+			break;
+		default:
+			return '  ';
+			break;
+	}
+}
+
 //Retorna el valor que debe ir en el campo EstadoCheque en el archivo Moura
 //El valor tiene el formato PP-MM donde PP: Porcentaje punto de venta / MM: Porcentaje Moura
 function obtenerEstadoCheque($dbConnection, $comercio, $fecha_liquidacion)
@@ -1100,6 +1123,7 @@ function formatearDatosBINDaMoura($dbConnection, $datosBIND)
 	$datosMoura['importe'] = convertirImporteNumericoAFormatoMoura($importeNetoMoura);
 
 	$datosMoura['metodoPago'] = convertirMetodoPago($datosBIND['forma_pago']);
+	$datosMoura['metodoPagoOriginal'] = convertirMetodoPagoOrginal($datosBIND['forma_pago']);
 	$datosMoura['estadoCheque'] = obtenerEstadoCheque($dbConnection, $datosBIND['numero_de_comercio'], $fechaLiquidacion);
 	$datosMoura['nroComprobante'] = str_pad($datosBIND['transaccion'], 18, "0", STR_PAD_LEFT);
 	$datosMoura['estadoCobranza'] = ESTADO_COBRANZA_CREDMOURA;
@@ -1341,6 +1365,7 @@ function insertarTransaccion($dbConnection, $datosBIND, $datosMoura)
 			sucursal,
 			importe,
 			metodopago,
+			metodopagoOriginal,
 			estadocheque,
 			nrocomprobante,
 			estadocobranza,
@@ -1371,6 +1396,7 @@ function insertarTransaccion($dbConnection, $datosBIND, $datosMoura)
 			:sucursal,
 			:importe,
 			:metodopago,
+			:metodopagoOriginal,
 			:estadocheque,
 			:nrocomprobante,
 			:estadocobranza,
@@ -1406,6 +1432,7 @@ function insertarTransaccion($dbConnection, $datosBIND, $datosMoura)
 	$stmt->bindValue(':sucursal', $datosMoura['sucursal']);
 	$stmt->bindValue(':importe', floatval(str_replace(['$', '.', ','], ['', '', '.'], $datosMoura['importe'])));
 	$stmt->bindValue(':metodopago', $datosMoura['metodoPago']);
+	$stmt->bindValue(':metodopagoOriginal', $datosMoura['metodoPagoOriginal']);
 	$stmt->bindValue(':estadocheque', $datosMoura['estadoCheque']);
 	$stmt->bindValue(':nrocomprobante', $datosMoura['nroComprobante']);
 	$stmt->bindValue(':estadocobranza', $datosMoura['estadoCobranza']);
@@ -1739,9 +1766,6 @@ function descargarArchivo($filter)
 	$webApiGateway->downloadFile($accessToken, $filter, urlencode($encrypted));
 }
 
-
-
-
 // --------------------------------------------------
 // Código principal del procesamiento por lotes
 // --------------------------------------------------
@@ -1827,7 +1851,6 @@ try {
 
 	//descargarArchivo($nombreArchivo);
 
-
 	// Abrir el archivo en modo de solo lectura
 	$rutabase = getenv("PHP_PROCESS_PATH");
 
@@ -1847,7 +1870,6 @@ try {
 	// Guardar en un archivo .txt por cada Division
 	$archivoMoura = fopen($directorioSalida . 'RecibosCredmoura' . DIVISION_BSAS . $fechaurl . '.txt', 'w');
 	fwrite($archivoMoura, CABECERA_ARCHIVO_MOURA . PHP_EOL);
-
 
 
 	$dbConnection = (new DatabaseConnector(DB_SERVER, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD))->getConnection();
