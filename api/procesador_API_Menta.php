@@ -198,6 +198,7 @@ class Transaccion
     public float $tax_financial_cost_rate = 0.0;
     public float $tax_financial_cost_vat;
     public float $tax_financial_cost_vat_rate = 0.0;
+    public ?string $serial_number = null;
 
     /**
      * Método "Factory" para crear un objeto desde el array REAL de la API
@@ -245,6 +246,7 @@ class Transaccion
         $tx->operation_number = (int) ($data['operation_number'] ?? 0);
         $tx->ref_operation_number = (int) ($data['ref_operation_number'] ?? 0);
         $tx->merchant_additional_info = $data['merchant_additional_info'] ?? null;
+        $tx->serial_number = $data['serial_number'] ?? null;
         $tx->tax_commission = 0.0;
         $tx->tax_commission_vat = 0.0;
         $tx->tax_financial_cost = 0.0;
@@ -897,6 +899,12 @@ function transformarFila(Transaccion $tx): array
     $filaTransformada['ID RUBRO COMERCIO'] = str_pad('', 6, '0'); // 612-617
     $filaTransformada['ID PROV CLIENTE'] = str_pad('', 3, '0'); // 618-620
 
+    // SERIAL NUMBER del terminal POS (14 caracteres)
+    $filaTransformada['SERIAL_NUMBER'] = str_pad($tx->serial_number ?? '', 14, ' ', STR_PAD_RIGHT); // 621-634
+
+    // CARD_BRAND (marca de tarjeta: VISA, MASTERCARD, AMEX, etc.) (10 caracteres)
+    $filaTransformada['CARD_BRAND'] = str_pad($tx->card_brand ?? '', 10, ' ', STR_PAD_RIGHT); // 635-644
+
     return $filaTransformada;
 }
 
@@ -961,7 +969,9 @@ function ensamblarLinea(array $filaProcesada): string
         'RELLENO 603-605',
         'BIN DE LA TARJETA',
         'ID RUBRO COMERCIO',
-        'ID PROV CLIENTE'
+        'ID PROV CLIENTE',
+        'SERIAL_NUMBER',
+        'CARD_BRAND'
     ];
 
     $lineaFinal = '';

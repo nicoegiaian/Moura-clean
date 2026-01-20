@@ -5,47 +5,20 @@
  * SCRIPT: Cálculo de Campos - Ahorro CredMoura
  * =========================================================================
  * 
- * Basado en la especificación "Nuevo ahorro Cred Moura"
- * 
- * CAMPOS A CALCULAR (en tabla calculos_ahorro_credmoura):
- * 
- * 1. beneficiocredmoura - 0.7% del precio de venta
- *    (0.2% diferencia arancel + 0.5% subsidio Moura)
- * 
- * 2. ahorrosplit - Según tipo de split + 0.04% IVA:
- *    - 0-100: 1.24% del precio de venta (1.20% + 0.04% IVA)
- *    - 30-70: 0.88% del precio de venta (0.84% + 0.04% IVA)
- *    - 40-60: 0.76% del precio de venta (0.72% + 0.04% IVA)
- *    - 50-50: 0.64% del precio de venta (0.60% + 0.04% IVA)
- * 
- * 3. ahorrocredmoura - Beneficio + Ahorro Split
- * 
- * 4. costofinanciero - Tasa MiPyme según cuotas:
- *    - 3 cuotas: 8.10% del precio de venta
- *    - 6 cuotas: 15.13% del precio de venta
- * 
- * 5. aranceltarjeta - Según método de pago:
- *    - Crédito (CR): 2% del precio de venta
- *    - Débito/QR/Prepaga (DE/QR): 1% del precio de venta
- * 
- * 6. totalneto - Lo que recibe el PDV:
- *    precio de venta - costofinanciero - aranceltarjeta - IVA - otros impuestos + beneficiocredmoura
- * 
- * NOTA: Todos los cálculos son sobre PRECIO DE VENTA (importecheque)
+ * CAMPOS CALCULADOS:
+ *   1. beneficiocredmoura = PrecioVenta * 0.7%
+ *   2. ahorrosplit = PrecioVenta * (variable según split + 0.4%)
+ *   3. ahorrocredmoura = beneficio + ahorro
+ *   4. costofinanciero = PrecioVenta * (8.1% para 3 cuotas, 15.13% para 6 cuotas)
+ *   5. aranceltarjeta = API + 0.2%
+ *   6. totalneto = PrecioVenta - CostoFin - Arancel - IVA - OtrosImp + Beneficio
  * 
  * USO: 
- *   CLI:
- *     php calcular_nuevos_campos.php           -> Procesa TODAS las transacciones
- *     php calcular_nuevos_campos.php 140126    -> Procesa solo transacciones del 14/01/2026
+ *   php calcular_nuevos_campos.php              -> Todas las transacciones
+ *   php calcular_nuevos_campos.php 140126       -> Solo fecha 14/01/2026
  * 
- *   WEB:
- *     calcular_nuevos_campos.php               -> Procesa TODAS las transacciones
- *     calcular_nuevos_campos.php?fecha=140126  -> Procesa solo transacciones del 14/01/2026
- * 
- *   (formato fecha: ddmmyy)
- * 
- * @version: 3.2
- * @fecha: 14 de Enero de 2026
+ * @version: 4.1
+ * @fecha: 20 de Enero de 2026
  * =========================================================================
  */
 
@@ -55,16 +28,17 @@
 
 require_once __DIR__ . '/constants.php';
 
-// Constantes de cálculo - SEGÚN ESPECIFICACIÓN
-const BENEFICIO_CREDMOURA = 0.007;    // 0.7% (0.2% dif arancel + 0.5% subsidio)
+// Constantes de cálculo
+const BENEFICIO_CREDMOURA = 0.007;    // 0.7%
 
-// Ahorro Split según tipo de split (base + 0.04% IVA)
-const AHORRO_SPLIT = [
-    0  => 0.0124,   // 0-100: 1.24% (1.20% + 0.04% IVA)
-    30 => 0.0088,   // 30-70: 0.88% (0.84% + 0.04% IVA)
-    40 => 0.0076,   // 40-60: 0.76% (0.72% + 0.04% IVA)
-    50 => 0.0064    // 50-50: 0.64% (0.60% + 0.04% IVA)
+// Ahorro Split: variable según split + 0.4% fijo
+const AHORRO_SPLIT_VARIABLE = [
+    0  => 0.012,    // 0-100: 1.2%
+    30 => 0.0084,   // 30-70: 0.84%
+    40 => 0.0072,   // 40-60: 0.72%
+    50 => 0.006     // 50-50: 0.60%
 ];
+const AHORRO_SPLIT_FIJO = 0.004;  // 0.4%
 
 // Costo Financiero - Tasa MiPyme
 const COSTO_FINANCIERO = [
@@ -72,9 +46,16 @@ const COSTO_FINANCIERO = [
     6 => 0.1513     // 6 cuotas: 15.13%
 ];
 
-// Arancel Tarjeta
-const ARANCEL_CREDITO = 0.02;   // 2% para tarjeta de crédito
-const ARANCEL_DEBITO = 0.01;    // 1% para débito, QR, prepaga
+const IVA_GENERAL = 0.21;           // 21%
+const IVA_COSTO_FINANCIERO = 0.105; // 10.5%
+
+// Arancel Tarjeta: API + 0.2% adicional
+const ARANCEL_CREDITO = 0.02;       // 2% crédito
+const ARANCEL_DEBITO = 0.01;        // 1% débito
+const ARANCEL_AMEX = 0.03;          // 3% AMEX
+const ARANCEL_ADICIONAL = 0.002;    // 0.2% adicional
+
+const OTROS_IMPUESTOS_RATE = 0.006; // 0.6% 
 
 // =========================================================================
 // DETECTAR MODO (CLI o WEB)
@@ -160,6 +141,7 @@ $createTable = "CREATE TABLE IF NOT EXISTS calculos_ahorro_credmoura (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nrotransaccion BIGINT NOT NULL,
     importecheque DECIMAL(15,2) NOT NULL COMMENT 'Precio de venta',
+    metodopagoOriginal VARCHAR(10) NULL COMMENT 'CR, DE, QR, PR',
     metodopago VARCHAR(10) NULL COMMENT 'CR, DE, QR',
     cuotas INT NULL COMMENT 'Cantidad de cuotas',
     porcentajepdv INT NULL COMMENT 'Porcentaje split del PDV',
@@ -194,13 +176,18 @@ echo "$nl=== OBTENIENDO DATOS ===$nl";
 $query = "SELECT 
         t.nrotransaccion,
         t.importecheque,
+        t.importeprimervenc,
         t.metodopago,
+        t.metodopagoOriginal,
         t.canal,
         t.fecha,
         t.idpdv,
+        t.marca,
         COALESCE(s.porcentajepdv, 30) as porcentajepdv,
+        IFNULL(ld.aranceltarjeta, 0) as aranceltarjeta_api,
         IFNULL(ld.ivacomisionpd + ld.ivacomisionprontopago + ld.ivadescuentocuotas + ld.ivacostoacreditacion + ld.ivaaranceltarjeta + ld.IVAcostomipyme, 0) as iva_total,
-        IFNULL(ld.sirtac + ld.otrosimpuestos, 0) as otros_impuestos
+        IFNULL(ld.sirtac + ld.otrosimpuestos, 0) as otros_impuestos,
+        IFNULL(ld.comisionpd + ld.comisionprontopago + ld.costoacreditacion + ld.costomipyme, 0) as comisiones_total
     FROM transacciones t
     LEFT JOIN (
         SELECT s1.idpdv, s1.porcentajepdv
@@ -254,8 +241,9 @@ function calcularBeneficioCredMoura($precioVenta)
 
 function calcularAhorroSplit($precioVenta, $porcentajePDV)
 {
-    $porcentaje = AHORRO_SPLIT[(int)$porcentajePDV] ?? 0;
-    return round($precioVenta * $porcentaje, 2);
+    $porcentajeVariable = AHORRO_SPLIT_VARIABLE[(int)$porcentajePDV] ?? 0;
+    $porcentajeTotal = $porcentajeVariable + AHORRO_SPLIT_FIJO;
+    return round($precioVenta * $porcentajeTotal, 2);
 }
 
 function calcularCostoFinanciero($precioVenta, $cuotas)
@@ -264,13 +252,37 @@ function calcularCostoFinanciero($precioVenta, $cuotas)
     return round($precioVenta * $porcentaje, 2);
 }
 
-function calcularArancelTarjeta($precioVenta, $metodoPago)
+/**
+ * Calcular IVA
+ * 
+ * Fórmulas:
+ *   - Cuotas >= 3: IVA = (PrecioVenta * arancelRate * 21%) + (PrecioVenta * costoFinRate * 10.5%)
+ *   - Cuotas < 3:  IVA = PrecioVenta * arancelRate * 21%
+ */
+function calcularIVAExcel($precioVenta, $cuotas, $metodoPago, $arancelAPI = 0)
 {
-    // CR = Crédito (2%), DE/QR = Débito/QR/Prepaga (1%)
-    if ($metodoPago === 'CR') {
-        return round($precioVenta * ARANCEL_CREDITO, 2);
+    // Rate del arancel desde la API
+    if ($precioVenta > 0 && $arancelAPI > 0) {
+        $arancelBaseRate = $arancelAPI / $precioVenta;
+    } elseif ($metodoPago === 'DE' || $metodoPago === 'QR') {
+        $arancelBaseRate = 0.008;  // 0.8% débito
+    } else {
+        $arancelBaseRate = 0.018;  // 1.8% crédito
     }
-    return round($precioVenta * ARANCEL_DEBITO, 2);
+    
+    if ($cuotas >= 3) {
+        $costoFinRate = COSTO_FINANCIERO[$cuotas] ?? 0;
+        $ivaArancel = $precioVenta * $arancelBaseRate * IVA_GENERAL;
+        $ivaCostoFin = $precioVenta * $costoFinRate * IVA_COSTO_FINANCIERO;
+        return round($ivaArancel + $ivaCostoFin, 2);
+    } else {
+        return round($precioVenta * $arancelBaseRate * IVA_GENERAL, 2);
+    }
+}
+
+function calcularOtrosImpuestosExcel($precioVenta)
+{
+    return round($precioVenta * OTROS_IMPUESTOS_RATE, 2);
 }
 
 // =========================================================================
@@ -280,16 +292,17 @@ function calcularArancelTarjeta($precioVenta, $metodoPago)
 echo "=== PROCESANDO ===$nl";
 
 $insertQuery = $pdo->prepare("INSERT INTO calculos_ahorro_credmoura (
-        nrotransaccion, importecheque, metodopago, cuotas, porcentajepdv,
+        nrotransaccion, importecheque, metodopagoOriginal, metodopago, cuotas, porcentajepdv,
         beneficiocredmoura, ahorrosplit, ahorrocredmoura, costofinanciero, aranceltarjeta,
         iva_total, otros_impuestos, totalneto
     ) VALUES (
-        :nrotransaccion, :importecheque, :metodopago, :cuotas, :porcentajepdv,
+        :nrotransaccion, :importecheque, :metodopagoOriginal, :metodopago, :cuotas, :porcentajepdv,
         :beneficio, :ahorro, :total, :costo, :arancel,
         :iva_total, :otros_impuestos, :totalneto
     )
     ON DUPLICATE KEY UPDATE
         importecheque = VALUES(importecheque),
+        metodopagoOriginal = VALUES(metodopagoOriginal),
         metodopago = VALUES(metodopago),
         cuotas = VALUES(cuotas),
         porcentajepdv = VALUES(porcentajepdv),
@@ -313,26 +326,29 @@ foreach ($transacciones as $i => $tx) {
         $porcentajePDV = (int)$tx['porcentajepdv'];
         $cuotas = (int)$tx['canal'];
         $cuotasParaCosto = extraerCuotas($tx['canal']);
-        $metodoPago = $tx['metodopago'];
+        $metodoPago = $tx['metodopagoOriginal'] == "" ? $tx['metodopago'] : $tx['metodopagoOriginal']; // Usar método original si está disponible
 
-        // Calcular los 5 campos base
+        // Cálculos
         $beneficio = calcularBeneficioCredMoura($precioVenta);
         $ahorro = calcularAhorroSplit($precioVenta, $porcentajePDV);
         $totalAhorro = round($beneficio + $ahorro, 2);
         $costo = calcularCostoFinanciero($precioVenta, $cuotasParaCosto);
-        $arancel = calcularArancelTarjeta($precioVenta, $metodoPago);
+        
+        $arancelAPI = (float)$tx['aranceltarjeta_api'];
+        $arancelAdicional = $precioVenta * ARANCEL_ADICIONAL;
+        $arancel = $arancelAPI + $arancelAdicional;
 
-        // Obtener IVA y otros impuestos de liquidacionesdetalle
-        $ivaTotal = (float)$tx['iva_total'];
-        $otrosImpuestos = (float)$tx['otros_impuestos'];
+        $ivaTotal = calcularIVAExcel($precioVenta, $cuotas, $metodoPago, $arancelAPI);
+        $otrosImpuestos = calcularOtrosImpuestosExcel($precioVenta);
 
-        // Calcular Total Neto: precio - costo - arancel - iva - otros + beneficio
+        // TotalNeto = PrecioVenta - CostoFin - Arancel - IVA - OtrosImp + Beneficio
         $totalNeto = round($precioVenta - $costo - $arancel - $ivaTotal - $otrosImpuestos + $beneficio, 2);
 
         // Insertar o actualizar
         $insertQuery->execute([
             ':nrotransaccion' => $tx['nrotransaccion'],
             ':importecheque' => $precioVenta,
+            ':metodopagoOriginal' => $tx['metodopagoOriginal'] ?? $tx['metodopago'],
             ':metodopago' => $metodoPago,
             ':cuotas' => $cuotas,
             ':porcentajepdv' => $porcentajePDV,
@@ -383,8 +399,7 @@ printf(
 );
 echo str_repeat("-", 155) . $nl;
 
-$queryEjemplos = "
-    SELECT * FROM calculos_ahorro_credmoura
+$queryEjemplos = "SELECT * FROM calculos_ahorro_credmoura
     ORDER BY fecha_calculo DESC
     LIMIT 10
 ";
@@ -410,6 +425,7 @@ echo str_repeat("-", 155) . $nl;
 // Resumen por método de pago
 echo "$nl=== RESUMEN POR MÉTODO DE PAGO ===$nl";
 $queryResumen = "SELECT 
+        metodopagoOriginal,
         metodopago,
         COUNT(*) as cantidad,
         SUM(importecheque) as total_ventas,
@@ -420,13 +436,14 @@ $queryResumen = "SELECT
         SUM(beneficiocredmoura) as total_beneficio,
         SUM(totalneto) as total_neto
     FROM calculos_ahorro_credmoura
-    GROUP BY metodopago
+    GROUP BY metodopagoOriginal, metodopago
 ";
 $resumen = $pdo->query($queryResumen)->fetchAll(PDO::FETCH_ASSOC);
 
 echo str_repeat("-", 140) . $nl;
 printf(
     "%-6s | %-8s | %-15s | %-12s | %-12s | %-12s | %-12s | %-12s | %-15s$nl",
+    "Pago Original",
     "Pago",
     "Cant.",
     "Total Ventas",
@@ -441,7 +458,8 @@ echo str_repeat("-", 140) . $nl;
 
 foreach ($resumen as $r) {
     printf(
-        "%-6s | %-8d | $%-14.2f | $%-11.2f | $%-11.2f | $%-11.2f | $%-11.2f | $%-11.2f | $%-14.2f$nl",
+        "%-6s | %-8s | %-15s | %-12s | %-12s | %-12s | %-12s | %-12s | %-15s$nl",
+        $r['metodopagoOriginal'],
         $r['metodopago'],
         $r['cantidad'],
         $r['total_ventas'],

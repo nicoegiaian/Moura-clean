@@ -168,6 +168,8 @@ function parsearRegistroBIND($registro)
 	$datos['bin_de_la_tarjeta'] = substr($registro, 605, 6);          // 606-611
 	$datos['id_rubro_comercio'] = substr($registro, 611, 6);          // 612-617
 	$datos['id_prov_cliente'] = substr($registro, 617, 3);            // 618-620
+	$datos['serial_number'] = trim(substr($registro, 620, 14));       // 621-634: Serial number del terminal POS
+	$datos['card_brand'] = trim(substr($registro, 634, 10));          // 635-644: Marca de tarjeta (VISA, MASTERCARD, AMEX)
 
 	//CAMBIO AGOSTO 2025 SI LA OPERACION FUE UN PAGO CON QR LA FECHA DE LIQUIDACION DEBE INDICARSE 2 DIAS 
 	//HABILES DESPUES QUE LO QUE INDICA BIND		
@@ -1358,8 +1360,8 @@ function generarRegistrosTxtLiquidacionMoura($datos)
 
 function insertarTransaccion($dbConnection, $datosBIND, $datosMoura)
 {
-	// Consulta SQL de inserción
-	$query = "INSERT INTO transacciones (
+	// Consulta SQL de inserción (IGNORE para evitar duplicados)
+	$query = "INSERT IGNORE INTO transacciones (
 			nrotransaccion,
 			idpdv,
 			sucursal,
@@ -1389,7 +1391,8 @@ function insertarTransaccion($dbConnection, $datosBIND, $datosMoura)
 			procesada,
 			completada,
 			marca,
-			idliquidacion
+			idliquidacion,
+			serial_number
 		) VALUES (
 			:nrotransaccion,
 			:idpdv,
@@ -1420,7 +1423,8 @@ function insertarTransaccion($dbConnection, $datosBIND, $datosMoura)
 			:procesada,
 			:completada,
 			:marca,
-			:idliquidacion
+			:idliquidacion,
+			:serial_number
 		)";
 
 	// Preparamos la consulta
@@ -1462,12 +1466,13 @@ function insertarTransaccion($dbConnection, $datosBIND, $datosMoura)
 	$stmt->bindValue(':tipotransaccion', $datosMoura['estadoCobranza']);
 	$stmt->bindValue(':procesada', true, PDO::PARAM_BOOL);
 	$stmt->bindValue(':completada', false, PDO::PARAM_BOOL);
-	$stmt->bindValue(':marca', '', PDO::PARAM_STR);
+	$stmt->bindValue(':marca', $datosBIND['card_brand'] ?? '', PDO::PARAM_STR);
 	$stmt->bindValue(':idliquidacion', 0, PDO::PARAM_INT);
+	$stmt->bindValue(':serial_number', $datosBIND['serial_number'] ?? null);
 
 	// Ejecutamos la consulta
 	if ($stmt->execute()) {
-		echo "Registro insertado correctamente.";
+		echo "Registro insertado correctamente. " . $datosBIND['transaccion'];
 	} else {
 		echo "Error al insertar registro: " . $stmt->errorInfo()[2];
 		throw new Exception("Error al insertar registro: " . $stmt->errorInfo()[2]);
@@ -1477,8 +1482,8 @@ function insertarTransaccion($dbConnection, $datosBIND, $datosMoura)
 function insertarLiquidacionesArchivo($dbConnection, $lineas, $fecha)
 {
 
-	// Consulta SQL de inserción
-	$query = "INSERT INTO liquidacionesarchivo (
+	// Consulta SQL de inserción (IGNORE para evitar duplicados)
+	$query = "INSERT IGNORE INTO liquidacionesarchivo (
 			linea0,
 			linea1,
 			linea2,
@@ -1512,8 +1517,8 @@ function insertarDetalleLiquidacion($dbConnection, $datosBIND)
 {
 
 
-	// Consulta SQL de inserción
-	$query = "INSERT INTO liquidacionesdetalle (
+	// Consulta SQL de inserción (IGNORE para evitar duplicados)
+	$query = "INSERT IGNORE INTO liquidacionesdetalle (
 			nrotransaccion,
 			comisionpd,
 			ivacomisionpd,
@@ -1701,7 +1706,7 @@ function insertarDetalleLiquidacion($dbConnection, $datosBIND)
 
 	// Ejecutamos la consulta
 	if ($stmt->execute()) {
-		echo "Registro Detalle de Liquidacion insertado correctamente.\n";
+		echo "Registro Detalle de Liquidacion insertado correctamente.\n" . $datosBIND['transaccion'];
 	} else {
 		echo  "Error al insertar registro: " . $stmt->errorInfo()[2];
 		throw new Exception("Error al insertar registro: " . $stmt->errorInfo()[2]);
@@ -1711,8 +1716,8 @@ function insertarDetalleLiquidacion($dbConnection, $datosBIND)
 function insertarDevolucion($dbConnection, $datosBIND)
 {
 
-	// Consulta SQL de inserción
-	$query = "INSERT INTO devoluciones (
+	// Consulta SQL de inserción (IGNORE para evitar duplicados)
+	$query = "INSERT IGNORE INTO devoluciones (
 					nrodevolucion,
                     nrotransaccion, 
                     idpdv, 
@@ -1746,7 +1751,7 @@ function insertarDevolucion($dbConnection, $datosBIND)
 
 	// Ejecutamos la consulta
 	if ($stmt->execute()) {
-		echo "Registro insertado correctamente.";
+		echo "Registro insertado correctamente. " . $datosBIND['nro_transaccion'];
 	} else {
 		echo  "Error al insertar registro: " . $stmt->errorInfo()[2];
 		throw new Exception("Error al insertar registro: " . $stmt->errorInfo()[2]);
